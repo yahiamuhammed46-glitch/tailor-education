@@ -13,6 +13,9 @@ import Exam from "./pages/Exam";
 import Exams from "./pages/Exams";
 import Results from "./pages/Results";
 import Dashboard from "./pages/Dashboard";
+import StudentDashboard from "./pages/StudentDashboard";
+import StudentCurriculums from "./pages/StudentCurriculums";
+import StudentExplain from "./pages/StudentExplain";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,6 +58,30 @@ const App = () => (
             />
             
             {/* Student Routes */}
+            <Route
+              path="/student"
+              element={
+                <ProtectedRoute allowedRoles={["student"]}>
+                  <StudentDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/curriculums"
+              element={
+                <ProtectedRoute allowedRoles={["student"]}>
+                  <StudentCurriculums />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/explain"
+              element={
+                <ProtectedRoute allowedRoles={["student"]}>
+                  <StudentExplain />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/exams"
               element={

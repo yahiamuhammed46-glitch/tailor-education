@@ -36,6 +36,9 @@ const Navbar = () => {
     if (role === "student") {
       return [
         ...baseLinks,
+        { path: "/student", label: "لوحة التحكم" },
+        { path: "/student/curriculums", label: "المناهج" },
+        { path: "/student/explain", label: "الشرح الذكي" },
         { path: "/exams", label: "الامتحانات" },
       ];
     }

@@ -44,7 +44,7 @@ const Auth = () => {
       if (from) {
         navigate(from, { replace: true });
       } else if (role === "student") {
-        navigate("/exams", { replace: true });
+        navigate("/student", { replace: true });
       } else {
         navigate("/dashboard", { replace: true });
       }

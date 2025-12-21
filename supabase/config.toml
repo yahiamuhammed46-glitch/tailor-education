@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.analyze-results]
 verify_jwt = false
+
+[functions.explain-topic]
+verify_jwt = false
