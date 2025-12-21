@@ -33,26 +33,126 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Get the curriculum info
+    const { data: curriculum } = await supabase
+      .from("curriculums")
+      .select("name, subject, education_level")
+      .eq("id", curriculumId)
+      .single();
+
     let actualFileContent = fileContent || "";
+    let fileBase64 = "";
+    let mimeType = "";
 
-    // If we have a file URL and it's a PDF/DOCX, try to download and extract content
-    if (fileUrl && (!fileContent || fileContent.length < 100)) {
+    // Download and process the actual file if URL is provided
+    if (fileUrl) {
       try {
-        console.log("Attempting to fetch file content from URL:", fileUrl);
+        console.log("Downloading file from:", fileUrl);
         
-        // For now, we'll use the AI to generate content based on the file name and subject
-        // In production, you would use a document parsing service
+        const fileResponse = await fetch(fileUrl);
+        if (!fileResponse.ok) {
+          throw new Error(`Failed to download file: ${fileResponse.status}`);
+        }
         
-        // Get the curriculum info
-        const { data: curriculum } = await supabase
-          .from("curriculums")
-          .select("name, subject, education_level")
-          .eq("id", curriculumId)
-          .single();
+        const fileBuffer = await fileResponse.arrayBuffer();
+        const uint8Array = new Uint8Array(fileBuffer);
+        
+        // Convert to base64 using btoa
+        let binary = '';
+        for (let i = 0; i < uint8Array.length; i++) {
+          binary += String.fromCharCode(uint8Array[i]);
+        }
+        fileBase64 = btoa(binary);
+        
+        // Determine MIME type from file extension
+        const ext = fileName?.toLowerCase().split('.').pop() || '';
+        if (ext === 'pdf') {
+          mimeType = 'application/pdf';
+        } else if (ext === 'docx') {
+          mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        } else if (ext === 'doc') {
+          mimeType = 'application/msword';
+        } else if (ext === 'pptx') {
+          mimeType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+        } else if (ext === 'txt') {
+          mimeType = 'text/plain';
+          // For text files, decode the content directly
+          const decoder = new TextDecoder('utf-8');
+          actualFileContent = decoder.decode(uint8Array);
+        }
+        
+        console.log(`File downloaded successfully. Size: ${uint8Array.length} bytes, Type: ${mimeType}`);
+      } catch (fetchError) {
+        console.error("Error downloading file:", fetchError);
+      }
+    }
 
-        if (curriculum) {
-          // Use AI to generate a detailed curriculum outline based on subject
-          const outlinePrompt = `أنت خبير تعليمي. بناءً على المعلومات التالية، أنشئ محتوى منهج دراسي تفصيلي يمكن استخدامه لتوليد أسئلة امتحان:
+    let extractedContent = "";
+
+    // If we have binary file data (PDF/DOCX), use Gemini's multimodal capabilities
+    if (fileBase64 && mimeType && mimeType !== 'text/plain') {
+      console.log("Using Gemini to extract content from file...");
+      
+      const extractPrompt = `أنت محلل مستندات متخصص. قم بتحليل هذا الملف واستخراج كل المحتوى النصي منه.
+
+معلومات الملف:
+- اسم الملف: ${fileName}
+- المادة: ${curriculum?.subject || 'غير محدد'}
+- المستوى: ${curriculum?.education_level || 'غير محدد'}
+
+المهمة: استخرج كل النص والمحتوى من هذا المستند بشكل كامل ومفصل. اكتب المحتوى كما هو موجود في الملف.`;
+
+      try {
+        const extractResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: extractPrompt,
+                  },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: `data:${mimeType};base64,${fileBase64}`,
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        });
+
+        if (extractResponse.ok) {
+          const extractData = await extractResponse.json();
+          extractedContent = extractData.choices?.[0]?.message?.content || "";
+          console.log("Extracted content length:", extractedContent.length);
+        } else {
+          const errorText = await extractResponse.text();
+          console.error("Content extraction error:", extractResponse.status, errorText);
+        }
+      } catch (extractError) {
+        console.error("Error extracting content:", extractError);
+      }
+    }
+
+    // Use extracted content or provided text content
+    actualFileContent = extractedContent || actualFileContent;
+
+    // If we still don't have content, generate based on metadata
+    if (!actualFileContent || actualFileContent.length < 100) {
+      console.log("No file content extracted, generating based on metadata...");
+      
+      if (curriculum) {
+        const outlinePrompt = `أنت خبير تعليمي. بناءً على المعلومات التالية، أنشئ محتوى منهج دراسي تفصيلي:
 
 المادة: ${curriculum.subject}
 الاسم: ${curriculum.name}
@@ -64,39 +164,33 @@ serve(async (req) => {
 2. التعريفات المهمة
 3. القوانين والقواعد
 4. الأمثلة التطبيقية
-5. النقاط الرئيسية لكل وحدة
+5. النقاط الرئيسية لكل وحدة`;
 
-اكتب المحتوى بشكل مفصل كأنك تكتب منهجاً دراسياً حقيقياً.`;
+        const contentResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [{ role: "user", content: outlinePrompt }],
+          }),
+        });
 
-          const contentResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
-              messages: [
-                { role: "user", content: outlinePrompt },
-              ],
-            }),
-          });
-
-          if (contentResponse.ok) {
-            const contentData = await contentResponse.json();
-            actualFileContent = contentData.choices?.[0]?.message?.content || "";
-            console.log("Generated curriculum content length:", actualFileContent.length);
-          }
+        if (contentResponse.ok) {
+          const contentData = await contentResponse.json();
+          actualFileContent = contentData.choices?.[0]?.message?.content || "";
         }
-      } catch (fetchError) {
-        console.error("Error fetching/generating file content:", fetchError);
       }
     }
 
+    console.log("Final content length for analysis:", actualFileContent.length);
+
     // Use Gemini to analyze the curriculum and extract topics
     const systemPrompt = `أنت محلل مناهج تعليمية متخصص. مهمتك هي:
-1. تحليل محتوى المنهج الدراسي المرفوع
-2. استخراج الوحدات والموضوعات الرئيسية
+1. تحليل محتوى المنهج الدراسي بدقة
+2. استخراج الوحدات والموضوعات الرئيسية من المحتوى الفعلي
 3. تنظيمها بترتيب منطقي
 
 يجب أن ترد بصيغة JSON فقط بالشكل التالي:
@@ -104,17 +198,18 @@ serve(async (req) => {
   "topics": [
     {
       "name": "اسم الوحدة أو الموضوع",
-      "description": "وصف مختصر للمحتوى مع النقاط الرئيسية التي يجب أن يتعلمها الطالب",
+      "description": "وصف مفصل للمحتوى مع النقاط الرئيسية والمفاهيم التي يجب أن يتعلمها الطالب",
       "order_index": 1
     }
   ]
 }
 
-ملاحظات:
-- استخرج من 5 إلى 12 وحدة رئيسية
-- اجعل الأسماء واضحة ومختصرة
+ملاحظات هامة:
+- استخرج الوحدات من المحتوى الفعلي للملف
+- استخرج من 5 إلى 15 وحدة رئيسية حسب محتوى الملف
+- اجعل الأسماء واضحة ومختصرة كما هي في الملف
 - رتب الوحدات بترتيب منطقي للتعلم
-- الوصف يجب أن يكون تفصيلياً ويحتوي على النقاط الرئيسية للوحدة`;
+- الوصف يجب أن يكون تفصيلياً ويحتوي على النقاط الرئيسية من المحتوى`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -126,7 +221,7 @@ serve(async (req) => {
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `حلل المنهج التالي واستخرج الوحدات الرئيسية:\n\n${actualFileContent.substring(0, 20000)}` },
+          { role: "user", content: `حلل المحتوى التالي من ملف "${fileName}" واستخرج الوحدات الرئيسية:\n\n${actualFileContent.substring(0, 30000)}` },
         ],
       }),
     });
@@ -171,7 +266,7 @@ serve(async (req) => {
     // Save the extracted content to the curriculum record
     await supabase
       .from("curriculums")
-      .update({ content: actualFileContent.substring(0, 50000) })
+      .update({ content: actualFileContent.substring(0, 100000) })
       .eq("id", curriculumId);
 
     // Save topics to database
@@ -192,13 +287,14 @@ serve(async (req) => {
       throw new Error("Failed to save topics");
     }
 
-    console.log(`Successfully extracted ${insertedTopics.length} topics`);
+    console.log(`Successfully extracted ${insertedTopics.length} topics from actual file content`);
 
     return new Response(
       JSON.stringify({
         success: true,
         topics: insertedTopics,
         message: `تم استخراج ${insertedTopics.length} وحدة من المنهج`,
+        contentExtracted: actualFileContent.length > 0,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
