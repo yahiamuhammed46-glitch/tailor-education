@@ -157,8 +157,9 @@ const Upload = () => {
         {
           body: {
             curriculumId: curriculum.id,
-            fileContent: fileContent || `المادة: ${subjectName}\nالمستوى: ${educationLevel}\nمنهج دراسي شامل يتضمن عدة وحدات ومواضيع`,
+            fileContent: fileContent || "",
             fileName: file.name,
+            fileUrl: publicUrl,
           },
         }
       );

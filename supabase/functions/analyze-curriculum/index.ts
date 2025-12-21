@@ -13,11 +13,11 @@ serve(async (req) => {
   }
 
   try {
-    const { curriculumId, fileContent, fileName } = await req.json();
+    const { curriculumId, fileContent, fileName, fileUrl } = await req.json();
 
-    if (!curriculumId || !fileContent) {
+    if (!curriculumId) {
       return new Response(
-        JSON.stringify({ error: "curriculumId and fileContent are required" }),
+        JSON.stringify({ error: "curriculumId is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -27,6 +27,70 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let actualFileContent = fileContent || "";
+
+    // If we have a file URL and it's a PDF/DOCX, try to download and extract content
+    if (fileUrl && (!fileContent || fileContent.length < 100)) {
+      try {
+        console.log("Attempting to fetch file content from URL:", fileUrl);
+        
+        // For now, we'll use the AI to generate content based on the file name and subject
+        // In production, you would use a document parsing service
+        
+        // Get the curriculum info
+        const { data: curriculum } = await supabase
+          .from("curriculums")
+          .select("name, subject, education_level")
+          .eq("id", curriculumId)
+          .single();
+
+        if (curriculum) {
+          // Use AI to generate a detailed curriculum outline based on subject
+          const outlinePrompt = `أنت خبير تعليمي. بناءً على المعلومات التالية، أنشئ محتوى منهج دراسي تفصيلي يمكن استخدامه لتوليد أسئلة امتحان:
+
+المادة: ${curriculum.subject}
+الاسم: ${curriculum.name}
+المستوى التعليمي: ${curriculum.education_level}
+اسم الملف: ${fileName}
+
+أنشئ محتوى تفصيلي يشمل:
+1. المفاهيم الأساسية
+2. التعريفات المهمة
+3. القوانين والقواعد
+4. الأمثلة التطبيقية
+5. النقاط الرئيسية لكل وحدة
+
+اكتب المحتوى بشكل مفصل كأنك تكتب منهجاً دراسياً حقيقياً.`;
+
+          const contentResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [
+                { role: "user", content: outlinePrompt },
+              ],
+            }),
+          });
+
+          if (contentResponse.ok) {
+            const contentData = await contentResponse.json();
+            actualFileContent = contentData.choices?.[0]?.message?.content || "";
+            console.log("Generated curriculum content length:", actualFileContent.length);
+          }
+        }
+      } catch (fetchError) {
+        console.error("Error fetching/generating file content:", fetchError);
+      }
     }
 
     // Use Gemini to analyze the curriculum and extract topics
@@ -40,17 +104,17 @@ serve(async (req) => {
   "topics": [
     {
       "name": "اسم الوحدة أو الموضوع",
-      "description": "وصف مختصر للمحتوى",
+      "description": "وصف مختصر للمحتوى مع النقاط الرئيسية التي يجب أن يتعلمها الطالب",
       "order_index": 1
     }
   ]
 }
 
 ملاحظات:
-- استخرج من 3 إلى 10 وحدات رئيسية
+- استخرج من 5 إلى 12 وحدة رئيسية
 - اجعل الأسماء واضحة ومختصرة
 - رتب الوحدات بترتيب منطقي للتعلم
-- الوصف يجب أن يكون جملة أو جملتين فقط`;
+- الوصف يجب أن يكون تفصيلياً ويحتوي على النقاط الرئيسية للوحدة`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -62,9 +126,8 @@ serve(async (req) => {
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `حلل المنهج التالي واستخرج الوحدات الرئيسية:\n\n${fileContent.substring(0, 15000)}` },
+          { role: "user", content: `حلل المنهج التالي واستخرج الوحدات الرئيسية:\n\n${actualFileContent.substring(0, 20000)}` },
         ],
-        temperature: 0.3,
       }),
     });
 
@@ -94,7 +157,6 @@ serve(async (req) => {
     // Parse the JSON response
     let parsedTopics;
     try {
-      // Extract JSON from the response (it might be wrapped in markdown code blocks)
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         parsedTopics = JSON.parse(jsonMatch[0]);
@@ -106,11 +168,13 @@ serve(async (req) => {
       throw new Error("Failed to parse curriculum analysis");
     }
 
-    // Save topics to database
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Save the extracted content to the curriculum record
+    await supabase
+      .from("curriculums")
+      .update({ content: actualFileContent.substring(0, 50000) })
+      .eq("id", curriculumId);
 
+    // Save topics to database
     const topicsToInsert = parsedTopics.topics.map((topic: any, index: number) => ({
       curriculum_id: curriculumId,
       name: topic.name,

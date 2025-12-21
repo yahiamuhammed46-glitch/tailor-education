@@ -67,6 +67,7 @@ export type Database = {
       }
       curriculums: {
         Row: {
+          content: string | null
           created_at: string
           education_level: string
           file_name: string | null
@@ -78,6 +79,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          content?: string | null
           created_at?: string
           education_level: string
           file_name?: string | null
@@ -89,6 +91,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          content?: string | null
           created_at?: string
           education_level?: string
           file_name?: string | null
