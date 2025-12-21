@@ -14,7 +14,393 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analysis_reports: {
+        Row: {
+          attempt_id: string
+          created_at: string
+          id: string
+          overall_assessment: string | null
+          recommendations: Json | null
+          start_point_description: string | null
+          start_point_topic_id: string | null
+          strengths: Json | null
+          weaknesses: Json | null
+        }
+        Insert: {
+          attempt_id: string
+          created_at?: string
+          id?: string
+          overall_assessment?: string | null
+          recommendations?: Json | null
+          start_point_description?: string | null
+          start_point_topic_id?: string | null
+          strengths?: Json | null
+          weaknesses?: Json | null
+        }
+        Update: {
+          attempt_id?: string
+          created_at?: string
+          id?: string
+          overall_assessment?: string | null
+          recommendations?: Json | null
+          start_point_description?: string | null
+          start_point_topic_id?: string | null
+          strengths?: Json | null
+          weaknesses?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_reports_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: true
+            referencedRelation: "exam_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analysis_reports_start_point_topic_id_fkey"
+            columns: ["start_point_topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculums: {
+        Row: {
+          created_at: string
+          education_level: string
+          file_name: string | null
+          file_url: string | null
+          id: string
+          name: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          education_level: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          name: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          education_level?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          name?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      exam_attempts: {
+        Row: {
+          completed_at: string | null
+          correct_answers: number
+          exam_id: string
+          id: string
+          score: number | null
+          started_at: string
+          status: string
+          student_email: string | null
+          student_name: string
+          time_spent_seconds: number | null
+          total_questions: number
+        }
+        Insert: {
+          completed_at?: string | null
+          correct_answers?: number
+          exam_id: string
+          id?: string
+          score?: number | null
+          started_at?: string
+          status?: string
+          student_email?: string | null
+          student_name: string
+          time_spent_seconds?: number | null
+          total_questions?: number
+        }
+        Update: {
+          completed_at?: string | null
+          correct_answers?: number
+          exam_id?: string
+          id?: string
+          score?: number | null
+          started_at?: string
+          status?: string
+          student_email?: string | null
+          student_name?: string
+          time_spent_seconds?: number | null
+          total_questions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_attempts_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_topics: {
+        Row: {
+          exam_id: string
+          id: string
+          topic_id: string
+        }
+        Insert: {
+          exam_id: string
+          id?: string
+          topic_id: string
+        }
+        Update: {
+          exam_id?: string
+          id?: string
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_topics_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exams: {
+        Row: {
+          created_at: string
+          curriculum_id: string
+          difficulty: string
+          duration_minutes: number
+          id: string
+          questions_per_topic: number
+          shuffle_questions: boolean
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id: string
+          difficulty?: string
+          duration_minutes?: number
+          id?: string
+          questions_per_topic?: number
+          shuffle_questions?: boolean
+          title: string
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string
+          difficulty?: string
+          duration_minutes?: number
+          id?: string
+          questions_per_topic?: number
+          shuffle_questions?: boolean
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exams_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curriculums"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      questions: {
+        Row: {
+          correct_answer: string
+          created_at: string
+          difficulty: string
+          exam_id: string
+          explanation: string | null
+          id: string
+          options: Json | null
+          order_index: number
+          question_text: string
+          question_type: string
+          topic_id: string
+        }
+        Insert: {
+          correct_answer: string
+          created_at?: string
+          difficulty?: string
+          exam_id: string
+          explanation?: string | null
+          id?: string
+          options?: Json | null
+          order_index?: number
+          question_text: string
+          question_type: string
+          topic_id: string
+        }
+        Update: {
+          correct_answer?: string
+          created_at?: string
+          difficulty?: string
+          exam_id?: string
+          explanation?: string | null
+          id?: string
+          options?: Json | null
+          order_index?: number
+          question_text?: string
+          question_type?: string
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "questions_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_answers: {
+        Row: {
+          answer: string | null
+          answered_at: string | null
+          attempt_id: string
+          id: string
+          is_correct: boolean | null
+          question_id: string
+        }
+        Insert: {
+          answer?: string | null
+          answered_at?: string | null
+          attempt_id: string
+          id?: string
+          is_correct?: boolean | null
+          question_id: string
+        }
+        Update: {
+          answer?: string | null
+          answered_at?: string | null
+          attempt_id?: string
+          id?: string
+          is_correct?: boolean | null
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_answers_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "exam_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      topic_scores: {
+        Row: {
+          attempt_id: string
+          correct_answers: number
+          id: string
+          score: number
+          status: string
+          topic_id: string
+          total_questions: number
+        }
+        Insert: {
+          attempt_id: string
+          correct_answers?: number
+          id?: string
+          score?: number
+          status?: string
+          topic_id: string
+          total_questions?: number
+        }
+        Update: {
+          attempt_id?: string
+          correct_answers?: number
+          id?: string
+          score?: number
+          status?: string
+          topic_id?: string
+          total_questions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topic_scores_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "exam_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_scores_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      topics: {
+        Row: {
+          created_at: string
+          curriculum_id: string
+          description: string | null
+          id: string
+          name: string
+          order_index: number
+        }
+        Insert: {
+          created_at?: string
+          curriculum_id: string
+          description?: string | null
+          id?: string
+          name: string
+          order_index?: number
+        }
+        Update: {
+          created_at?: string
+          curriculum_id?: string
+          description?: string | null
+          id?: string
+          name?: string
+          order_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curriculums"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

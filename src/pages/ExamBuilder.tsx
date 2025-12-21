@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -10,18 +10,22 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Settings, Clock, ListChecks, Sparkles, ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
-const mockTopics = [
-  { id: "1", name: "الوحدة الأولى: المعادلات الخطية", selected: true },
-  { id: "2", name: "الوحدة الثانية: المعادلات التربيعية", selected: true },
-  { id: "3", name: "الوحدة الثالثة: الهندسة المستوية", selected: true },
-  { id: "4", name: "الوحدة الرابعة: حساب المثلثات", selected: false },
-  { id: "5", name: "الوحدة الخامسة: الإحصاء والاحتمالات", selected: false },
-];
+interface Topic {
+  id: string;
+  name: string;
+  description: string | null;
+  selected: boolean;
+}
 
 const ExamBuilder = () => {
   const navigate = useNavigate();
-  const [topics, setTopics] = useState(mockTopics);
+  const [searchParams] = useSearchParams();
+  const curriculumId = searchParams.get("curriculumId");
+  
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [questionsPerTopic, setQuestionsPerTopic] = useState(5);
   const [examDuration, setExamDuration] = useState(30);
   const [difficulty, setDifficulty] = useState([50]);
@@ -33,6 +37,53 @@ const ExamBuilder = () => {
   });
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [curriculumContent, setCurriculumContent] = useState("");
+
+  useEffect(() => {
+    if (curriculumId) {
+      loadTopics();
+    } else {
+      // If no curriculum ID, redirect to upload
+      toast.error("يرجى رفع منهج أولاً");
+      navigate("/upload");
+    }
+  }, [curriculumId]);
+
+  const loadTopics = async () => {
+    try {
+      const { data: topicsData, error } = await supabase
+        .from("topics")
+        .select("*")
+        .eq("curriculum_id", curriculumId)
+        .order("order_index");
+
+      if (error) throw error;
+
+      if (!topicsData || topicsData.length === 0) {
+        toast.error("لم يتم العثور على وحدات. يرجى رفع منهج جديد.");
+        navigate("/upload");
+        return;
+      }
+
+      setTopics(topicsData.map(t => ({ ...t, selected: true })));
+
+      // Get curriculum content for question generation
+      const { data: curriculum } = await supabase
+        .from("curriculums")
+        .select("*")
+        .eq("id", curriculumId)
+        .single();
+
+      if (curriculum) {
+        setCurriculumContent(`${curriculum.name} - ${curriculum.subject}`);
+      }
+    } catch (error) {
+      console.error("Error loading topics:", error);
+      toast.error("فشل تحميل الوحدات");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const selectedTopicsCount = topics.filter((t) => t.selected).length;
   const totalQuestions = selectedTopicsCount * questionsPerTopic;
@@ -47,6 +98,12 @@ const ExamBuilder = () => {
     return "صعب";
   };
 
+  const getDifficultyValue = (value: number): string => {
+    if (value < 33) return "easy";
+    if (value < 66) return "medium";
+    return "hard";
+  };
+
   const handleGenerate = async () => {
     if (selectedTopicsCount === 0) {
       toast.error("يرجى اختيار وحدة واحدة على الأقل");
@@ -54,14 +111,78 @@ const ExamBuilder = () => {
     }
 
     setIsGenerating(true);
-    
-    // Simulate generation - will be replaced with AI call
-    setTimeout(() => {
+
+    try {
+      const selectedTopicIds = topics.filter(t => t.selected).map(t => t.id);
+
+      // 1. Create exam record
+      const { data: exam, error: examError } = await supabase
+        .from("exams")
+        .insert({
+          curriculum_id: curriculumId,
+          title: `امتحان تشخيصي - ${new Date().toLocaleDateString("ar-EG")}`,
+          duration_minutes: examDuration,
+          difficulty: getDifficultyValue(difficulty[0]),
+          questions_per_topic: questionsPerTopic,
+          shuffle_questions: shuffleQuestions,
+        })
+        .select()
+        .single();
+
+      if (examError) {
+        console.error("Exam creation error:", examError);
+        throw new Error("فشل إنشاء الامتحان");
+      }
+
+      toast.info("جارٍ توليد الأسئلة بالذكاء الاصطناعي...");
+
+      // 2. Generate questions using AI
+      const { data: questionsData, error: questionsError } = await supabase.functions.invoke(
+        "generate-questions",
+        {
+          body: {
+            examId: exam.id,
+            topicIds: selectedTopicIds,
+            questionsPerTopic,
+            difficulty: getDifficultyValue(difficulty[0]),
+            questionTypes,
+            curriculumContent,
+          },
+        }
+      );
+
+      if (questionsError) {
+        console.error("Questions generation error:", questionsError);
+        throw new Error("فشل توليد الأسئلة");
+      }
+
+      toast.success(`تم إنشاء ${questionsData.questionsCount} سؤال بنجاح!`);
+      
+      // Navigate to exam page
+      navigate(`/exam?examId=${exam.id}`);
+      
+    } catch (error) {
+      console.error("Generate error:", error);
+      toast.error(error instanceof Error ? error.message : "حدث خطأ أثناء إنشاء الامتحان");
+    } finally {
       setIsGenerating(false);
-      toast.success(`تم إنشاء ${totalQuestions} سؤال بنجاح!`);
-      navigate("/exam");
-    }, 3000);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-hero">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">جارٍ تحميل الوحدات...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-hero">
@@ -73,13 +194,13 @@ const ExamBuilder = () => {
           <div className="text-center mb-10 animate-fade-in">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-4">
               <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">يعمل بالذكاء الاصطناعي</span>
+              <span className="text-sm font-medium text-primary">يعمل بالذكاء الاصطناعي Gemini</span>
             </div>
             <h1 className="text-3xl md:text-4xl font-bold mb-4">
               بناء <span className="text-gradient">الامتحان التشخيصي</span>
             </h1>
             <p className="text-muted-foreground text-lg">
-              حدد إعدادات الامتحان وسيقوم Gemini بإنشاء الأسئلة تلقائياً
+              حدد إعدادات الامتحان وسيتم توليد أسئلة حقيقية من المنهج
             </p>
           </div>
 
@@ -92,8 +213,8 @@ const ExamBuilder = () => {
                     <ListChecks className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h2 className="font-bold text-lg">الوحدات الدراسية</h2>
-                    <p className="text-sm text-muted-foreground">اختر الوحدات للتقييم</p>
+                    <h2 className="font-bold text-lg">الوحدات المستخرجة</h2>
+                    <p className="text-sm text-muted-foreground">تم استخراج {topics.length} وحدة من المنهج</p>
                   </div>
                 </div>
 
@@ -111,7 +232,12 @@ const ExamBuilder = () => {
                         checked={topic.selected}
                         onCheckedChange={() => toggleTopic(topic.id)}
                       />
-                      <span className="font-medium">{topic.name}</span>
+                      <div className="flex-1">
+                        <span className="font-medium">{topic.name}</span>
+                        {topic.description && (
+                          <p className="text-sm text-muted-foreground mt-1">{topic.description}</p>
+                        )}
+                      </div>
                     </label>
                   ))}
                 </div>

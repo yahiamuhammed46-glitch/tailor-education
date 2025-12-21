@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,8 @@ import {
   ChevronDown,
   Eye,
   Download,
-  MoreVertical
+  MoreVertical,
+  Loader2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -29,24 +30,96 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { supabase } from "@/integrations/supabase/client";
+import { Link } from "react-router-dom";
 
-// Mock data
-const mockStats = [
-  { label: "إجمالي الطلاب", value: "156", icon: Users, color: "primary" },
-  { label: "الامتحانات المكتملة", value: "89", icon: BookOpen, color: "success" },
-  { label: "متوسط النتائج", value: "72%", icon: TrendingUp, color: "info" },
-];
-
-const mockStudents = [
-  { id: "1", name: "أحمد محمد", email: "ahmed@email.com", score: 85, status: "متقن", startPoint: "الوحدة الثالثة", date: "2024-01-15" },
-  { id: "2", name: "سارة علي", email: "sara@email.com", score: 72, status: "جيد", startPoint: "الوحدة الثانية", date: "2024-01-14" },
-  { id: "3", name: "محمود حسن", email: "mahmoud@email.com", score: 58, status: "متوسط", startPoint: "الوحدة الأولى", date: "2024-01-14" },
-  { id: "4", name: "فاطمة أحمد", email: "fatma@email.com", score: 92, status: "متقن", startPoint: "الوحدة الرابعة", date: "2024-01-13" },
-  { id: "5", name: "عمر خالد", email: "omar@email.com", score: 45, status: "ضعيف", startPoint: "مراجعة شاملة", date: "2024-01-13" },
-];
+interface StudentResult {
+  id: string;
+  student_name: string;
+  student_email: string | null;
+  score: number;
+  total_questions: number;
+  correct_answers: number;
+  status: string;
+  started_at: string;
+  analysis_report?: {
+    start_point_description: string | null;
+  };
+}
 
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [students, setStudents] = useState<StudentResult[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    completedExams: 0,
+    averageScore: 0,
+  });
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      // Get all exam attempts
+      const { data: attempts, error } = await supabase
+        .from("exam_attempts")
+        .select(`
+          *,
+          analysis_reports(start_point_description)
+        `)
+        .eq("status", "completed")
+        .order("started_at", { ascending: false });
+
+      if (error) throw error;
+
+      const formattedStudents = (attempts || []).map(attempt => {
+        const analysisReports = attempt.analysis_reports;
+        const analysisReport = Array.isArray(analysisReports) 
+          ? analysisReports[0] 
+          : analysisReports;
+        
+        return {
+          id: attempt.id,
+          student_name: attempt.student_name,
+          student_email: attempt.student_email,
+          score: Number(attempt.score) || 0,
+          total_questions: attempt.total_questions,
+          correct_answers: attempt.correct_answers,
+          status: getStatusFromScore(Number(attempt.score) || 0),
+          started_at: attempt.started_at,
+          analysis_report: analysisReport,
+        };
+      });
+
+      setStudents(formattedStudents);
+
+      // Calculate stats
+      const completed = formattedStudents.length;
+      const avgScore = completed > 0 
+        ? Math.round(formattedStudents.reduce((sum, s) => sum + s.score, 0) / completed)
+        : 0;
+
+      setStats({
+        totalStudents: completed,
+        completedExams: completed,
+        averageScore: avgScore,
+      });
+    } catch (error) {
+      console.error("Error loading dashboard:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getStatusFromScore = (score: number): string => {
+    if (score >= 85) return "متقن";
+    if (score >= 70) return "جيد";
+    if (score >= 50) return "متوسط";
+    return "ضعيف";
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -64,10 +137,32 @@ const Dashboard = () => {
     return "text-destructive";
   };
 
-  const filteredStudents = mockStudents.filter(
+  const filteredStudents = students.filter(
     (student) =>
-      student.name.includes(searchQuery) || student.email.includes(searchQuery)
+      student.student_name.includes(searchQuery) || 
+      (student.student_email && student.student_email.includes(searchQuery))
   );
+
+  const mockStats = [
+    { label: "إجمالي الطلاب", value: stats.totalStudents.toString(), icon: Users, color: "primary" },
+    { label: "الامتحانات المكتملة", value: stats.completedExams.toString(), icon: BookOpen, color: "success" },
+    { label: "متوسط النتائج", value: `${stats.averageScore}%`, icon: TrendingUp, color: "info" },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-hero">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">جارٍ تحميل البيانات...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-hero">
@@ -166,71 +261,81 @@ const Dashboard = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredStudents.map((student) => (
-                    <TableRow key={student.id} className="hover:bg-muted/50">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-bold">
-                            {student.name.charAt(0)}
-                          </div>
-                          <div>
-                            <p className="font-medium">{student.name}</p>
-                            <p className="text-sm text-muted-foreground">{student.email}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="w-16">
-                            <Progress value={student.score} className="h-2" />
-                          </div>
-                          <span className={`font-bold ${getScoreColor(student.score)}`}>
-                            {student.score}%
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(student.status)}`}>
-                          {student.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {student.startPoint}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(student.date).toLocaleDateString("ar-EG")}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="gap-2">
-                              <Eye className="h-4 w-4" />
-                              عرض التفاصيل
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2">
-                              <Download className="h-4 w-4" />
-                              تحميل التقرير
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  {filteredStudents.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-12">
+                        <p className="text-muted-foreground">
+                          {searchQuery ? "لا توجد نتائج مطابقة للبحث" : "لا توجد نتائج بعد"}
+                        </p>
+                        {!searchQuery && (
+                          <Link to="/upload" className="block mt-4">
+                            <Button variant="outline">ارفع منهج وأنشئ امتحان</Button>
+                          </Link>
+                        )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    filteredStudents.map((student) => (
+                      <TableRow key={student.id} className="hover:bg-muted/50">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[hsl(174,72%,40%)] to-[hsl(200,80%,45%)] flex items-center justify-center text-primary-foreground font-bold">
+                              {student.student_name.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="font-medium">{student.student_name}</p>
+                              <p className="text-sm text-muted-foreground">{student.student_email || "بدون بريد"}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="w-16">
+                              <Progress value={student.score} className="h-2" />
+                            </div>
+                            <span className={`font-bold ${getScoreColor(student.score)}`}>
+                              {student.score}%
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(student.status)}`}>
+                            {student.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground max-w-[200px] truncate">
+                          {student.analysis_report?.start_point_description || "غير محدد"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(student.started_at).toLocaleDateString("ar-EG")}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link to={`/results?attemptId=${student.id}`} className="flex items-center gap-2">
+                                  <Eye className="h-4 w-4" />
+                                  عرض التفاصيل
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="gap-2">
+                                <Download className="h-4 w-4" />
+                                تحميل التقرير
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
-
-            {/* Empty State */}
-            {filteredStudents.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">لا توجد نتائج مطابقة للبحث</p>
-              </div>
-            )}
           </div>
         </div>
       </main>
