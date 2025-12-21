@@ -2,15 +2,15 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, BarChart3 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useParallax } from "@/hooks/use-parallax";
-import IsometricGrid from "./IsometricGrid";
+import ConnectedIconsGrid from "./ConnectedIconsGrid";
 
 const HeroSection = () => {
   const parallaxOffset = useParallax({ speed: 0.2 });
 
   return (
     <section className="relative overflow-hidden min-h-[95vh] flex items-center bg-background">
-      {/* Isometric 3D Grid Background */}
-      <IsometricGrid />
+      {/* Connected Icons Grid Background */}
+      <ConnectedIconsGrid />
 
       {/* Content with parallax */}
       <div 
