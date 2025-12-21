@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Volume2, VolumeX, Pause, Play, Square, Settings2 } from "lucide-react";
-import { useSpeechSynthesis } from "@/hooks/use-speech-synthesis";
+import { Volume2, Pause, Play, Square, Settings2, Loader2, Sparkles } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -13,47 +12,159 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { Switch } from "@/components/ui/switch";
+import { useState, useRef, useCallback } from "react";
+import { toast } from "sonner";
 
 interface VoicePlayerProps {
   text: string;
   compact?: boolean;
 }
 
-const VoicePlayer = ({ text, compact = false }: VoicePlayerProps) => {
-  const [rate, setRate] = useState(1);
-  const [pitch, setPitch] = useState(1);
-  
-  const {
-    speak,
-    stop,
-    togglePause,
-    isSpeaking,
-    isPaused,
-    voices,
-    selectedVoice,
-    setSelectedVoice,
-    isSupported,
-  } = useSpeechSynthesis({ rate, pitch });
+// ElevenLabs voices with Arabic support
+const ELEVENLABS_VOICES = [
+  { id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda", description: "صوت أنثوي واضح" },
+  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", description: "صوت أنثوي طبيعي" },
+  { id: "JBFqnCBsd6RMkjVDRZzb", name: "George", description: "صوت ذكوري عميق" },
+  { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", description: "صوت ذكوري واضح" },
+  { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", description: "صوت أنثوي ناعم" },
+  { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", description: "صوت ذكوري شاب" },
+];
 
-  if (!isSupported) {
-    return null;
-  }
+const VoicePlayer = ({ text, compact = false }: VoicePlayerProps) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedVoiceId, setSelectedVoiceId] = useState(ELEVENLABS_VOICES[0].id);
+  const [useElevenLabs, setUseElevenLabs] = useState(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const playWithElevenLabs = useCallback(async () => {
+    if (!text) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ text, voiceId: selectedVoiceId }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("فشل في توليد الصوت");
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      if (audioRef.current) {
+        audioRef.current.pause();
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.onplay = () => {
+        setIsPlaying(true);
+        setIsPaused(false);
+      };
+
+      audio.onpause = () => {
+        setIsPaused(true);
+      };
+
+      audio.onended = () => {
+        setIsPlaying(false);
+        setIsPaused(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      audio.onerror = () => {
+        setIsPlaying(false);
+        setIsPaused(false);
+        toast.error("حدث خطأ أثناء تشغيل الصوت");
+      };
+
+      await audio.play();
+    } catch (error) {
+      console.error("ElevenLabs TTS error:", error);
+      toast.error("فشل في توليد الصوت. جاري استخدام الصوت البديل...");
+      // Fallback to browser TTS
+      playWithBrowserTTS();
+    } finally {
+      setIsLoading(false);
+    }
+  }, [text, selectedVoiceId]);
+
+  const playWithBrowserTTS = useCallback(() => {
+    if (!text || !("speechSynthesis" in window)) return;
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ar-SA";
+    
+    const voices = window.speechSynthesis.getVoices();
+    const arabicVoice = voices.find((v) => v.lang.startsWith("ar"));
+    if (arabicVoice) utterance.voice = arabicVoice;
+
+    utterance.onstart = () => {
+      setIsPlaying(true);
+      setIsPaused(false);
+    };
+
+    utterance.onend = () => {
+      setIsPlaying(false);
+      setIsPaused(false);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }, [text]);
 
   const handleSpeak = () => {
-    if (isSpeaking && !isPaused) {
-      togglePause();
+    if (isPlaying && !isPaused) {
+      // Pause
+      if (audioRef.current) {
+        audioRef.current.pause();
+      } else {
+        window.speechSynthesis.pause();
+      }
+      setIsPaused(true);
     } else if (isPaused) {
-      togglePause();
+      // Resume
+      if (audioRef.current) {
+        audioRef.current.play();
+      } else {
+        window.speechSynthesis.resume();
+      }
+      setIsPaused(false);
     } else {
-      speak(text);
+      // Start playing
+      if (useElevenLabs) {
+        playWithElevenLabs();
+      } else {
+        playWithBrowserTTS();
+      }
     }
   };
 
-  const arabicVoices = voices.filter((v) => v.lang.startsWith("ar"));
-  const otherVoices = voices.filter((v) => !v.lang.startsWith("ar"));
+  const handleStop = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    window.speechSynthesis.cancel();
+    setIsPlaying(false);
+    setIsPaused(false);
+  };
 
   if (compact) {
     return (
@@ -63,9 +174,12 @@ const VoicePlayer = ({ text, compact = false }: VoicePlayerProps) => {
           size="icon"
           className="h-7 w-7"
           onClick={handleSpeak}
-          title={isSpeaking ? (isPaused ? "متابعة" : "إيقاف مؤقت") : "استمع"}
+          disabled={isLoading}
+          title={isPlaying ? (isPaused ? "متابعة" : "إيقاف مؤقت") : "استمع"}
         >
-          {isSpeaking ? (
+          {isLoading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : isPlaying ? (
             isPaused ? (
               <Play className="h-3.5 w-3.5" />
             ) : (
@@ -75,12 +189,12 @@ const VoicePlayer = ({ text, compact = false }: VoicePlayerProps) => {
             <Volume2 className="h-3.5 w-3.5" />
           )}
         </Button>
-        {isSpeaking && (
+        {isPlaying && (
           <Button
             variant="ghost"
             size="icon"
             className="h-7 w-7"
-            onClick={stop}
+            onClick={handleStop}
             title="إيقاف"
           >
             <Square className="h-3 w-3" />
@@ -90,15 +204,23 @@ const VoicePlayer = ({ text, compact = false }: VoicePlayerProps) => {
     );
   }
 
+  const selectedVoice = ELEVENLABS_VOICES.find((v) => v.id === selectedVoiceId);
+
   return (
     <div className="flex items-center gap-2">
       <Button
-        variant={isSpeaking ? "secondary" : "outline"}
+        variant={isPlaying ? "secondary" : "outline"}
         size="sm"
         onClick={handleSpeak}
+        disabled={isLoading}
         className="gap-2"
       >
-        {isSpeaking ? (
+        {isLoading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            جارٍ التحميل...
+          </>
+        ) : isPlaying ? (
           isPaused ? (
             <>
               <Play className="h-4 w-4" />
@@ -114,12 +236,13 @@ const VoicePlayer = ({ text, compact = false }: VoicePlayerProps) => {
           <>
             <Volume2 className="h-4 w-4" />
             استمع للشرح
+            {useElevenLabs && <Sparkles className="h-3 w-3 text-accent" />}
           </>
         )}
       </Button>
 
-      {isSpeaking && (
-        <Button variant="ghost" size="icon" onClick={stop} title="إيقاف">
+      {isPlaying && (
+        <Button variant="ghost" size="icon" onClick={handleStop} title="إيقاف">
           <Square className="h-4 w-4" />
         </Button>
       )}
@@ -132,81 +255,57 @@ const VoicePlayer = ({ text, compact = false }: VoicePlayerProps) => {
         </PopoverTrigger>
         <PopoverContent className="w-72" align="end">
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>الصوت</Label>
-              {arabicVoices.length === 0 && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  لم يتم العثور على أصوات عربية. جرب متصفح آخر مثل Chrome أو Edge للحصول على أصوات عربية أفضل.
+            {/* ElevenLabs Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-1">
+                  صوت واقعي
+                  <Sparkles className="h-3 w-3 text-accent" />
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  استخدام ElevenLabs AI
                 </p>
-              )}
-              <Select
-                value={selectedVoice?.name || ""}
-                onValueChange={(name) => {
-                  const voice = voices.find((v) => v.name === name);
-                  if (voice) setSelectedVoice(voice);
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="اختر صوتاً" />
-                </SelectTrigger>
-                <SelectContent>
-                  {arabicVoices.length > 0 && (
-                    <>
-                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                        أصوات عربية
-                      </div>
-                      {arabicVoices.map((voice) => (
-                        <SelectItem key={voice.name} value={voice.name}>
-                          {voice.name} ({voice.lang})
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
-                  {otherVoices.length > 0 && (
-                    <>
-                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                        أصوات أخرى
-                      </div>
-                      {otherVoices.slice(0, 5).map((voice) => (
-                        <SelectItem key={voice.name} value={voice.name}>
-                          {voice.name} ({voice.lang})
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>السرعة</Label>
-                <span className="text-xs text-muted-foreground">{rate}x</span>
               </div>
-              <Slider
-                value={[rate]}
-                onValueChange={([v]) => setRate(v)}
-                min={0.5}
-                max={2}
-                step={0.1}
-                className="w-full"
+              <Switch
+                checked={useElevenLabs}
+                onCheckedChange={setUseElevenLabs}
               />
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>النبرة</Label>
-                <span className="text-xs text-muted-foreground">{pitch}</span>
+            {/* Voice Selection */}
+            {useElevenLabs && (
+              <div className="space-y-2">
+                <Label>اختر الصوت</Label>
+                <Select
+                  value={selectedVoiceId}
+                  onValueChange={setSelectedVoiceId}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>
+                      {selectedVoice?.name} - {selectedVoice?.description}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ELEVENLABS_VOICES.map((voice) => (
+                      <SelectItem key={voice.id} value={voice.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{voice.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {voice.description}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <Slider
-                value={[pitch]}
-                onValueChange={([v]) => setPitch(v)}
-                min={0.5}
-                max={2}
-                step={0.1}
-                className="w-full"
-              />
-            </div>
+            )}
+
+            {!useElevenLabs && (
+              <p className="text-xs text-muted-foreground">
+                سيتم استخدام صوت المتصفح الافتراضي
+              </p>
+            )}
           </div>
         </PopoverContent>
       </Popover>
