@@ -44,7 +44,12 @@ const Navbar = () => {
   }, []);
 
   const getNavLinks = () => {
-    const baseLinks = [{ path: "/", label: "الرئيسية" }];
+    const baseLinks = [
+      { path: "/", label: "الرئيسية" },
+      { path: "/#about", label: "من نحن", isAnchor: true },
+      { path: "/#services", label: "الخدمات", isAnchor: true },
+      { path: "/#pricing", label: "الأسعار", isAnchor: true },
+    ];
 
     if (!user) {
       return baseLinks;
@@ -70,6 +75,22 @@ const Navbar = () => {
     }
 
     return baseLinks;
+  };
+
+  const handleNavClick = (link: { path: string; label: string; isAnchor?: boolean }) => {
+    if (link.isAnchor) {
+      const sectionId = link.path.replace("/#", "");
+      const element = document.getElementById(sectionId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth" });
+      } else if (location.pathname !== "/") {
+        navigate("/");
+        setTimeout(() => {
+          const el = document.getElementById(sectionId);
+          el?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+      }
+    }
   };
 
   const navLinks = getNavLinks();
@@ -108,15 +129,27 @@ const Navbar = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
-              <Link key={link.path} to={link.path}>
+              link.isAnchor ? (
                 <Button
-                  variant={isActive(link.path) ? "default" : "ghost"}
+                  key={link.path}
+                  variant="ghost"
                   size="sm"
-                  className={isActive(link.path) ? "" : "text-muted-foreground hover:text-foreground"}
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => handleNavClick(link)}
                 >
                   {link.label}
                 </Button>
-              </Link>
+              ) : (
+                <Link key={link.path} to={link.path}>
+                  <Button
+                    variant={isActive(link.path) ? "default" : "ghost"}
+                    size="sm"
+                    className={isActive(link.path) ? "" : "text-muted-foreground hover:text-foreground"}
+                  >
+                    {link.label}
+                  </Button>
+                </Link>
+              )
             ))}
           </div>
 
@@ -190,14 +223,28 @@ const Navbar = () => {
           <div className="md:hidden py-4 border-t border-border/50 animate-slide-up">
             <div className="flex flex-col gap-2">
               {navLinks.map((link) => (
-                <Link key={link.path} to={link.path} onClick={() => setIsOpen(false)}>
+                link.isAnchor ? (
                   <Button
-                    variant={isActive(link.path) ? "default" : "ghost"}
+                    key={link.path}
+                    variant="ghost"
                     className="w-full justify-start"
+                    onClick={() => {
+                      handleNavClick(link);
+                      setIsOpen(false);
+                    }}
                   >
                     {link.label}
                   </Button>
-                </Link>
+                ) : (
+                  <Link key={link.path} to={link.path} onClick={() => setIsOpen(false)}>
+                    <Button
+                      variant={isActive(link.path) ? "default" : "ghost"}
+                      className="w-full justify-start"
+                    >
+                      {link.label}
+                    </Button>
+                  </Link>
+                )
               ))}
               
               {user ? (
