@@ -32,9 +32,9 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   if (allowedRoles && role && !allowedRoles.includes(role)) {
     // Redirect to appropriate page based on role
     if (role === "student") {
-      return <Navigate to="/exams" replace />;
+      return <Navigate to="/student" replace />;
     }
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
