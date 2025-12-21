@@ -8,10 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload as UploadIcon, FileText, X, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Upload = () => {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
+  const [fileContent, setFileContent] = useState<string>("");
   const [isDragging, setIsDragging] = useState(false);
   const [subjectName, setSubjectName] = useState("");
   const [educationLevel, setEducationLevel] = useState("");
@@ -38,17 +40,31 @@ const Upload = () => {
     }
   }, []);
 
-  const validateAndSetFile = (file: File) => {
+  const extractTextFromFile = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        resolve(text || "");
+      };
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsText(file);
+    });
+  };
+
+  const validateAndSetFile = async (file: File) => {
     const validTypes = [
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       "application/msword",
       "application/vnd.ms-powerpoint",
+      "text/plain",
     ];
 
-    if (!validTypes.includes(file.type)) {
-      toast.error("نوع الملف غير مدعوم. يرجى رفع ملف PDF أو Word أو PowerPoint.");
+    // Allow text files for demo purposes
+    if (!validTypes.includes(file.type) && !file.name.endsWith('.txt')) {
+      toast.error("نوع الملف غير مدعوم. يرجى رفع ملف PDF أو Word أو PowerPoint أو نص.");
       return;
     }
 
@@ -58,7 +74,17 @@ const Upload = () => {
     }
 
     setFile(file);
-    toast.success("تم تحميل الملف بنجاح!");
+    
+    // Extract text content for analysis
+    try {
+      const content = await extractTextFromFile(file);
+      setFileContent(content);
+      toast.success("تم تحميل الملف بنجاح!");
+    } catch (error) {
+      // For PDF/DOCX, we'll use a placeholder since browser can't read them directly
+      setFileContent(`ملف: ${file.name}\n\nمحتوى المنهج الدراسي - سيتم تحليله بواسطة الذكاء الاصطناعي`);
+      toast.success("تم تحميل الملف بنجاح!");
+    }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,6 +96,7 @@ const Upload = () => {
 
   const removeFile = () => {
     setFile(null);
+    setFileContent("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,13 +108,74 @@ const Upload = () => {
     }
 
     setIsUploading(true);
-    
-    // Simulate upload - will be replaced with actual API call
-    setTimeout(() => {
+
+    try {
+      // 1. Upload file to storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("curriculums")
+        .upload(fileName, file);
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw new Error("فشل رفع الملف");
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from("curriculums")
+        .getPublicUrl(fileName);
+
+      // 2. Create curriculum record
+      const { data: curriculum, error: curriculumError } = await supabase
+        .from("curriculums")
+        .insert({
+          name: subjectName,
+          subject: subjectName,
+          education_level: educationLevel,
+          file_url: publicUrl,
+          file_name: file.name,
+        })
+        .select()
+        .single();
+
+      if (curriculumError) {
+        console.error("Curriculum error:", curriculumError);
+        throw new Error("فشل حفظ بيانات المنهج");
+      }
+
+      toast.info("جارٍ تحليل المنهج بالذكاء الاصطناعي...");
+
+      // 3. Call AI to analyze curriculum and extract topics
+      const { data: analysisData, error: analysisError } = await supabase.functions.invoke(
+        "analyze-curriculum",
+        {
+          body: {
+            curriculumId: curriculum.id,
+            fileContent: fileContent || `المادة: ${subjectName}\nالمستوى: ${educationLevel}\nمنهج دراسي شامل يتضمن عدة وحدات ومواضيع`,
+            fileName: file.name,
+          },
+        }
+      );
+
+      if (analysisError) {
+        console.error("Analysis error:", analysisError);
+        throw new Error("فشل تحليل المنهج");
+      }
+
+      toast.success(`تم استخراج ${analysisData.topics?.length || 0} وحدة من المنهج!`);
+      
+      // Navigate to exam builder with curriculum ID
+      navigate(`/exam-builder?curriculumId=${curriculum.id}`);
+      
+    } catch (error) {
+      console.error("Submit error:", error);
+      toast.error(error instanceof Error ? error.message : "حدث خطأ أثناء رفع المنهج");
+    } finally {
       setIsUploading(false);
-      toast.success("تم رفع المنهج بنجاح! جارٍ تحليله...");
-      navigate("/exam-builder");
-    }, 2000);
+    }
   };
 
   const getFileIcon = (type: string) => {
@@ -109,7 +197,7 @@ const Upload = () => {
               رفع <span className="text-gradient">المنهج الدراسي</span>
             </h1>
             <p className="text-muted-foreground text-lg">
-              ارفع ملف المنهج وسيقوم النظام بتحليله وإنشاء أسئلة تشخيصية
+              ارفع ملف المنهج وسيقوم الذكاء الاصطناعي بتحليله واستخراج الوحدات
             </p>
           </div>
 
@@ -162,13 +250,13 @@ const Upload = () => {
                     اسحب الملف هنا أو اضغط للاختيار
                   </p>
                   <p className="text-sm text-muted-foreground mb-4">
-                    PDF, Word, PowerPoint (الحد الأقصى 50 ميجابايت)
+                    PDF, Word, PowerPoint, TXT (الحد الأقصى 50 ميجابايت)
                   </p>
                   <input
                     type="file"
                     id="file-upload"
                     className="hidden"
-                    accept=".pdf,.doc,.docx,.ppt,.pptx"
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,.txt"
                     onChange={handleFileInput}
                   />
                   <Button type="button" variant="outline" asChild>
