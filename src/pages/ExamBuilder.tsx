@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Settings, Clock, ListChecks, Sparkles, ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Topic {
   id: string;
@@ -23,6 +24,7 @@ const ExamBuilder = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const curriculumId = searchParams.get("curriculumId");
+  const { user } = useAuth();
   
   const [topics, setTopics] = useState<Topic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -125,6 +127,7 @@ const ExamBuilder = () => {
           difficulty: getDifficultyValue(difficulty[0]),
           questions_per_topic: questionsPerTopic,
           shuffle_questions: shuffleQuestions,
+          user_id: user?.id,
         })
         .select()
         .single();

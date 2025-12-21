@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Upload as UploadIcon, FileText, X, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Upload = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
@@ -137,6 +139,7 @@ const Upload = () => {
           education_level: educationLevel,
           file_url: publicUrl,
           file_name: file.name,
+          user_id: user?.id,
         })
         .select()
         .single();

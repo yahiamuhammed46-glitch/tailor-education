@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Clock, ChevronLeft, ChevronRight, Flag, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +36,7 @@ const Exam = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const examId = searchParams.get("examId");
+  const { user, profile } = useAuth();
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -44,8 +46,8 @@ const Exam = () => {
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [showTimeWarning, setShowTimeWarning] = useState(false);
   const [showStartDialog, setShowStartDialog] = useState(true);
-  const [studentName, setStudentName] = useState("");
-  const [studentEmail, setStudentEmail] = useState("");
+  const [studentName, setStudentName] = useState(profile?.full_name || "");
+  const [studentEmail, setStudentEmail] = useState(user?.email || "");
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -125,6 +127,7 @@ const Exam = () => {
           student_name: studentName.trim(),
           student_email: studentEmail.trim() || null,
           total_questions: questions.length,
+          user_id: user?.id,
         })
         .select()
         .single();
