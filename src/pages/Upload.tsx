@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -6,10 +6,48 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload as UploadIcon, FileText, X, CheckCircle2, Loader2 } from "lucide-react";
+import { 
+  Upload as UploadIcon, 
+  FileText, 
+  X, 
+  CheckCircle2, 
+  Loader2, 
+  Plus, 
+  Trash2, 
+  BookOpen,
+  Calendar,
+  GraduationCap
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface Curriculum {
+  id: string;
+  name: string;
+  subject: string;
+  education_level: string;
+  file_name: string | null;
+  created_at: string;
+}
 
 const Upload = () => {
   const { user } = useAuth();
@@ -20,6 +58,67 @@ const Upload = () => {
   const [subjectName, setSubjectName] = useState("");
   const [educationLevel, setEducationLevel] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [curriculums, setCurriculums] = useState<Curriculum[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      loadCurriculums();
+    }
+  }, [user]);
+
+  const loadCurriculums = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("curriculums")
+        .select("*")
+        .eq("user_id", user?.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setCurriculums(data || []);
+    } catch (error) {
+      console.error("Error loading curriculums:", error);
+      toast.error("فشل تحميل المناهج");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    
+    setIsDeleting(true);
+    try {
+      // Delete related data first
+      const { error: topicsError } = await supabase
+        .from("topics")
+        .delete()
+        .eq("curriculum_id", deleteId);
+
+      if (topicsError) throw topicsError;
+
+      // Delete curriculum
+      const { error } = await supabase
+        .from("curriculums")
+        .delete()
+        .eq("id", deleteId);
+
+      if (error) throw error;
+
+      setCurriculums(prev => prev.filter(c => c.id !== deleteId));
+      toast.success("تم حذف المنهج بنجاح");
+    } catch (error) {
+      console.error("Error deleting curriculum:", error);
+      toast.error("فشل حذف المنهج");
+    } finally {
+      setIsDeleting(false);
+      setDeleteId(null);
+    }
+  };
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -64,7 +163,6 @@ const Upload = () => {
       "text/plain",
     ];
 
-    // Allow text files for demo purposes
     if (!validTypes.includes(file.type) && !file.name.endsWith('.txt')) {
       toast.error("نوع الملف غير مدعوم. يرجى رفع ملف PDF أو Word أو PowerPoint أو نص.");
       return;
@@ -77,13 +175,11 @@ const Upload = () => {
 
     setFile(file);
     
-    // Extract text content for analysis
     try {
       const content = await extractTextFromFile(file);
       setFileContent(content);
       toast.success("تم تحميل الملف بنجاح!");
     } catch (error) {
-      // For PDF/DOCX, we'll use a placeholder since browser can't read them directly
       setFileContent(`ملف: ${file.name}\n\nمحتوى المنهج الدراسي - سيتم تحليله بواسطة الذكاء الاصطناعي`);
       toast.success("تم تحميل الملف بنجاح!");
     }
@@ -101,6 +197,13 @@ const Upload = () => {
     setFileContent("");
   };
 
+  const resetForm = () => {
+    setFile(null);
+    setFileContent("");
+    setSubjectName("");
+    setEducationLevel("");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -112,7 +215,6 @@ const Upload = () => {
     setIsUploading(true);
 
     try {
-      // 1. Upload file to storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
       
@@ -125,12 +227,10 @@ const Upload = () => {
         throw new Error("فشل رفع الملف");
       }
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from("curriculums")
         .getPublicUrl(fileName);
 
-      // 2. Create curriculum record
       const { data: curriculum, error: curriculumError } = await supabase
         .from("curriculums")
         .insert({
@@ -151,7 +251,6 @@ const Upload = () => {
 
       toast.info("جارٍ تحليل المنهج بالذكاء الاصطناعي...");
 
-      // 3. Call AI to analyze curriculum and extract topics
       const { data: analysisData, error: analysisError } = await supabase.functions.invoke(
         "analyze-curriculum",
         {
@@ -171,8 +270,9 @@ const Upload = () => {
 
       toast.success(`تم استخراج ${analysisData.topics?.length || 0} وحدة من المنهج!`);
       
-      // Navigate to exam builder with curriculum ID
-      navigate(`/exam-builder?curriculumId=${curriculum.id}`);
+      setIsDialogOpen(false);
+      resetForm();
+      loadCurriculums();
       
     } catch (error) {
       console.error("Submit error:", error);
@@ -189,148 +289,283 @@ const Upload = () => {
     return "📁";
   };
 
+  const getLevelLabel = (level: string) => {
+    const labels: Record<string, string> = {
+      primary: "ابتدائي",
+      preparatory: "إعدادي",
+      secondary: "ثانوي",
+      university: "جامعي",
+    };
+    return labels[level] || level;
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("ar-EG", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-hero">
       <Navbar />
       
       <main className="flex-1 py-12">
-        <div className="container mx-auto px-4 max-w-2xl">
+        <div className="container mx-auto px-4 max-w-5xl">
           {/* Header */}
-          <div className="text-center mb-10 animate-fade-in">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4">
-              رفع <span className="text-gradient">المنهج الدراسي</span>
-            </h1>
-            <p className="text-muted-foreground text-lg">
-              ارفع ملف المنهج وسيقوم الذكاء الاصطناعي بتحليله واستخراج الوحدات
-            </p>
-          </div>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8 animate-fade-in">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold mb-2">
+                <span className="text-gradient">المناهج الدراسية</span>
+              </h1>
+              <p className="text-muted-foreground text-lg">
+                إدارة المناهج الخاصة بك وإنشاء امتحانات منها
+              </p>
+            </div>
 
-          {/* Upload Form */}
-          <form onSubmit={handleSubmit} className="space-y-8 animate-slide-up">
-            {/* File Upload Area */}
-            <div
-              className={`relative border-2 border-dashed rounded-2xl p-8 transition-all duration-300 ${
-                isDragging
-                  ? "border-primary bg-primary/5 scale-[1.02]"
-                  : file
-                  ? "border-success bg-success/5"
-                  : "border-border hover:border-primary/50 hover:bg-primary/5"
-              }`}
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
-            >
-              {file ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="text-4xl">{getFileIcon(file.type)}</div>
-                    <div>
-                      <p className="font-semibold text-foreground">{file.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {(file.size / 1024 / 1024).toFixed(2)} ميجابايت
-                      </p>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="hero" size="lg" className="gap-2">
+                  <Plus className="h-5 w-5" />
+                  رفع منهج جديد
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="text-xl">رفع منهج جديد</DialogTitle>
+                  <DialogDescription>
+                    ارفع ملف المنهج وسيقوم الذكاء الاصطناعي بتحليله واستخراج الوحدات
+                  </DialogDescription>
+                </DialogHeader>
+
+                <form onSubmit={handleSubmit} className="space-y-6 mt-4">
+                  {/* File Upload Area */}
+                  <div
+                    className={`relative border-2 border-dashed rounded-2xl p-6 transition-all duration-300 ${
+                      isDragging
+                        ? "border-primary bg-primary/5 scale-[1.02]"
+                        : file
+                        ? "border-success bg-success/5"
+                        : "border-border hover:border-primary/50 hover:bg-primary/5"
+                    }`}
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                  >
+                    {file ? (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="text-3xl">{getFileIcon(file.type)}</div>
+                          <div>
+                            <p className="font-semibold text-foreground">{file.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {(file.size / 1024 / 1024).toFixed(2)} ميجابايت
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-5 w-5 text-success" />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={removeFile}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-primary/10 flex items-center justify-center">
+                          <UploadIcon className="h-7 w-7 text-primary" />
+                        </div>
+                        <p className="font-medium mb-1">اسحب الملف هنا أو اضغط للاختيار</p>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          PDF, Word, PowerPoint, TXT (الحد الأقصى 50 ميجابايت)
+                        </p>
+                        <input
+                          type="file"
+                          id="file-upload"
+                          className="hidden"
+                          accept=".pdf,.doc,.docx,.ppt,.pptx,.txt"
+                          onChange={handleFileInput}
+                        />
+                        <Button type="button" variant="outline" size="sm" asChild>
+                          <label htmlFor="file-upload" className="cursor-pointer">
+                            <FileText className="h-4 w-4 ml-2" />
+                            اختر ملفاً
+                          </label>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Form Fields */}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="subject" className="text-base font-medium">
+                        اسم المادة
+                      </Label>
+                      <Input
+                        id="subject"
+                        placeholder="مثال: الرياضيات، الفيزياء، اللغة العربية"
+                        value={subjectName}
+                        onChange={(e) => setSubjectName(e.target.value)}
+                        className="h-11"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="level" className="text-base font-medium">
+                        المستوى التعليمي
+                      </Label>
+                      <Select value={educationLevel} onValueChange={setEducationLevel}>
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="اختر المستوى التعليمي" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="primary">المرحلة الابتدائية</SelectItem>
+                          <SelectItem value="preparatory">المرحلة الإعدادية</SelectItem>
+                          <SelectItem value="secondary">المرحلة الثانوية</SelectItem>
+                          <SelectItem value="university">المرحلة الجامعية</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-6 w-6 text-success" />
+
+                  {/* Submit Button */}
+                  <Button
+                    type="submit"
+                    variant="hero"
+                    size="lg"
+                    className="w-full"
+                    disabled={!file || !subjectName || !educationLevel || isUploading}
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin ml-2" />
+                        جارٍ الرفع والتحليل...
+                      </>
+                    ) : (
+                      <>
+                        <UploadIcon className="h-5 w-5 ml-2" />
+                        رفع وتحليل المنهج
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {/* Curriculums List */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            </div>
+          ) : curriculums.length === 0 ? (
+            <div className="bg-card rounded-2xl border border-border/50 p-12 text-center animate-fade-in">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
+                <BookOpen className="h-10 w-10 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">لا توجد مناهج بعد</h3>
+              <p className="text-muted-foreground mb-6">
+                ابدأ برفع منهجك الأول وسيقوم الذكاء الاصطناعي بتحليله
+              </p>
+              <Button variant="hero" onClick={() => setIsDialogOpen(true)}>
+                <Plus className="h-5 w-5 ml-2" />
+                رفع منهج جديد
+              </Button>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 animate-slide-up">
+              {curriculums.map((curriculum, index) => (
+                <div
+                  key={curriculum.id}
+                  className="bg-card rounded-2xl border border-border/50 p-6 hover:shadow-lg transition-all duration-300 hover:border-primary/30 group"
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <BookOpen className="h-6 w-6 text-primary" />
+                    </div>
                     <Button
-                      type="button"
                       variant="ghost"
                       size="icon"
-                      onClick={removeFile}
-                      className="text-muted-foreground hover:text-destructive"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setDeleteId(curriculum.id)}
                     >
-                      <X className="h-5 w-5" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                </div>
-              ) : (
-                <div className="text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
-                    <UploadIcon className="h-8 w-8 text-primary" />
+
+                  <h3 className="font-bold text-lg mb-2 line-clamp-1">{curriculum.name}</h3>
+                  
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <GraduationCap className="h-4 w-4" />
+                      <span>{getLevelLabel(curriculum.education_level)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>{formatDate(curriculum.created_at)}</span>
+                    </div>
+                    {curriculum.file_name && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <FileText className="h-4 w-4" />
+                        <span className="truncate">{curriculum.file_name}</span>
+                      </div>
+                    )}
                   </div>
-                  <p className="text-lg font-medium mb-2">
-                    اسحب الملف هنا أو اضغط للاختيار
-                  </p>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    PDF, Word, PowerPoint, TXT (الحد الأقصى 50 ميجابايت)
-                  </p>
-                  <input
-                    type="file"
-                    id="file-upload"
-                    className="hidden"
-                    accept=".pdf,.doc,.docx,.ppt,.pptx,.txt"
-                    onChange={handleFileInput}
-                  />
-                  <Button type="button" variant="outline" asChild>
-                    <label htmlFor="file-upload" className="cursor-pointer">
-                      <FileText className="h-4 w-4 ml-2" />
-                      اختر ملفاً
-                    </label>
+
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => navigate(`/exam-builder?curriculumId=${curriculum.id}`)}
+                  >
+                    إنشاء امتحان
                   </Button>
                 </div>
-              )}
+              ))}
             </div>
-
-            {/* Form Fields */}
-            <div className="bg-card rounded-2xl border border-border/50 p-6 space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="subject" className="text-base font-medium">
-                  اسم المادة
-                </Label>
-                <Input
-                  id="subject"
-                  placeholder="مثال: الرياضيات، الفيزياء، اللغة العربية"
-                  value={subjectName}
-                  onChange={(e) => setSubjectName(e.target.value)}
-                  className="h-12"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="level" className="text-base font-medium">
-                  المستوى التعليمي
-                </Label>
-                <Select value={educationLevel} onValueChange={setEducationLevel}>
-                  <SelectTrigger className="h-12">
-                    <SelectValue placeholder="اختر المستوى التعليمي" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="primary">المرحلة الابتدائية</SelectItem>
-                    <SelectItem value="preparatory">المرحلة الإعدادية</SelectItem>
-                    <SelectItem value="secondary">المرحلة الثانوية</SelectItem>
-                    <SelectItem value="university">المرحلة الجامعية</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              variant="hero"
-              size="xl"
-              className="w-full"
-              disabled={!file || !subjectName || !educationLevel || isUploading}
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin ml-2" />
-                  جارٍ الرفع والتحليل...
-                </>
-              ) : (
-                <>
-                  <UploadIcon className="h-5 w-5 ml-2" />
-                  رفع وتحليل المنهج
-                </>
-              )}
-            </Button>
-          </form>
+          )}
         </div>
       </main>
 
       <Footer />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>هل أنت متأكد من حذف المنهج؟</AlertDialogTitle>
+            <AlertDialogDescription>
+              سيتم حذف المنهج وجميع الوحدات المرتبطة به. هذا الإجراء لا يمكن التراجع عنه.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel disabled={isDeleting}>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                  جارٍ الحذف...
+                </>
+              ) : (
+                "حذف المنهج"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
