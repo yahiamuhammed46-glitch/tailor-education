@@ -1,20 +1,68 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, Menu, X } from "lucide-react";
+import { GraduationCap, Menu, X, LogOut, User } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Navbar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, profile, role, signOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
-  const navLinks = [
-    { path: "/", label: "الرئيسية" },
-    { path: "/upload", label: "رفع المنهج" },
-    { path: "/exam-builder", label: "بناء الامتحان" },
-    { path: "/dashboard", label: "لوحة التحكم" },
-  ];
+  const getNavLinks = () => {
+    const baseLinks = [{ path: "/", label: "الرئيسية" }];
 
+    if (!user) {
+      return baseLinks;
+    }
+
+    if (role === "teacher" || role === "admin") {
+      return [
+        ...baseLinks,
+        { path: "/upload", label: "رفع المنهج" },
+        { path: "/exam-builder", label: "بناء الامتحان" },
+        { path: "/dashboard", label: "لوحة التحكم" },
+      ];
+    }
+
+    if (role === "student") {
+      return [
+        ...baseLinks,
+        { path: "/exams", label: "الامتحانات" },
+      ];
+    }
+
+    return baseLinks;
+  };
+
+  const navLinks = getNavLinks();
   const isActive = (path: string) => location.pathname === path;
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
+
+  const getRoleLabel = () => {
+    switch (role) {
+      case "admin":
+        return "مدير";
+      case "teacher":
+        return "مدرس";
+      case "student":
+        return "طالب";
+      default:
+        return "";
+    }
+  };
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -43,13 +91,46 @@ const Navbar = () => {
             ))}
           </div>
 
-          {/* CTA Button */}
-          <div className="hidden md:block">
-            <Link to="/exam">
-              <Button variant="hero" size="sm">
-                ابدأ الامتحان
-              </Button>
-            </Link>
+          {/* Auth Section */}
+          <div className="hidden md:flex items-center gap-3">
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <div className="w-6 h-6 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground text-xs font-bold">
+                      {profile?.full_name?.charAt(0) || user.email?.charAt(0)}
+                    </div>
+                    <span className="max-w-[100px] truncate">
+                      {profile?.full_name || user.email}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <div className="px-2 py-1.5">
+                    <p className="text-sm font-medium">{profile?.full_name}</p>
+                    <p className="text-xs text-muted-foreground">{getRoleLabel()}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-destructive gap-2">
+                    <LogOut className="h-4 w-4" />
+                    تسجيل الخروج
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Link to="/auth">
+                  <Button variant="ghost" size="sm">
+                    تسجيل الدخول
+                  </Button>
+                </Link>
+                <Link to="/auth">
+                  <Button variant="hero" size="sm">
+                    إنشاء حساب
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -75,11 +156,32 @@ const Navbar = () => {
                   </Button>
                 </Link>
               ))}
-              <Link to="/exam" onClick={() => setIsOpen(false)}>
-                <Button variant="hero" className="w-full mt-2">
-                  ابدأ الامتحان
-                </Button>
-              </Link>
+              
+              {user ? (
+                <>
+                  <div className="px-4 py-2 border-t border-border/50 mt-2">
+                    <p className="text-sm font-medium">{profile?.full_name}</p>
+                    <p className="text-xs text-muted-foreground">{getRoleLabel()}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-destructive"
+                    onClick={() => {
+                      handleSignOut();
+                      setIsOpen(false);
+                    }}
+                  >
+                    <LogOut className="h-4 w-4 ml-2" />
+                    تسجيل الخروج
+                  </Button>
+                </>
+              ) : (
+                <Link to="/auth" onClick={() => setIsOpen(false)}>
+                  <Button variant="hero" className="w-full mt-2">
+                    تسجيل الدخول
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         )}

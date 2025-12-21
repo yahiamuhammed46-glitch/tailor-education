@@ -14,7 +14,9 @@ import {
   Eye,
   Download,
   MoreVertical,
-  Loader2
+  Loader2,
+  FileText,
+  ClipboardList
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -30,8 +32,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface StudentResult {
   id: string;
@@ -47,14 +51,39 @@ interface StudentResult {
   };
 }
 
+interface Curriculum {
+  id: string;
+  name: string;
+  subject: string;
+  education_level: string;
+  created_at: string;
+  topics_count?: number;
+}
+
+interface ExamData {
+  id: string;
+  title: string;
+  difficulty: string;
+  duration_minutes: number;
+  created_at: string;
+  curriculum_name: string;
+  attempts_count: number;
+}
+
 const Dashboard = () => {
+  const { user, profile } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [students, setStudents] = useState<StudentResult[]>([]);
+  const [curriculums, setCurriculums] = useState<Curriculum[]>([]);
+  const [exams, setExams] = useState<ExamData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("results");
   const [stats, setStats] = useState({
     totalStudents: 0,
     completedExams: 0,
     averageScore: 0,
+    totalCurriculums: 0,
+    totalExams: 0,
   });
 
   useEffect(() => {
@@ -106,6 +135,8 @@ const Dashboard = () => {
         totalStudents: completed,
         completedExams: completed,
         averageScore: avgScore,
+        totalCurriculums: 0,
+        totalExams: 0,
       });
     } catch (error) {
       console.error("Error loading dashboard:", error);
