@@ -206,12 +206,12 @@ const StudentExplain = () => {
                   </Select>
 
                   {topics.length > 0 && (
-                    <Select value={selectedTopic} onValueChange={setSelectedTopic}>
+                    <Select value={selectedTopic} onValueChange={(val) => setSelectedTopic(val === "all" ? "" : val)}>
                       <SelectTrigger>
                         <SelectValue placeholder="اختر وحدة (اختياري)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">جميع الوحدات</SelectItem>
+                        <SelectItem value="all">جميع الوحدات</SelectItem>
                         {topics.map((t) => (
                           <SelectItem key={t.id} value={t.id}>
                             {t.name}
