@@ -30,12 +30,39 @@ export const useSpeechSynthesis = (options: UseSpeechSynthesisOptions = {}) => {
         const availableVoices = window.speechSynthesis.getVoices();
         setVoices(availableVoices);
         
-        // Try to find Arabic voice, fallback to any available
-        const arabicVoice = availableVoices.find(
-          (v) => v.lang.startsWith("ar") 
-        );
-        const defaultVoice = arabicVoice || availableVoices[0];
-        setSelectedVoice(defaultVoice);
+        // Priority order for Arabic voices
+        const arabicVoicePriority = [
+          "ar-SA", // Saudi Arabic
+          "ar-EG", // Egyptian Arabic
+          "ar-AE", // UAE Arabic
+          "ar-KW", // Kuwaiti Arabic
+          "ar-QA", // Qatari Arabic
+          "ar",    // Generic Arabic
+        ];
+        
+        let bestVoice: SpeechSynthesisVoice | null = null;
+        
+        // Try to find the best Arabic voice
+        for (const langCode of arabicVoicePriority) {
+          const voice = availableVoices.find(
+            (v) => v.lang === langCode || v.lang.startsWith(langCode)
+          );
+          if (voice) {
+            bestVoice = voice;
+            break;
+          }
+        }
+        
+        // If no Arabic voice found, try any voice that supports Arabic
+        if (!bestVoice) {
+          bestVoice = availableVoices.find((v) => 
+            v.lang.startsWith("ar") || 
+            v.name.toLowerCase().includes("arabic") ||
+            v.name.includes("عربي")
+          ) || availableVoices[0];
+        }
+        
+        setSelectedVoice(bestVoice);
       };
 
       loadVoices();
