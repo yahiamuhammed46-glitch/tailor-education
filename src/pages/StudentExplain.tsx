@@ -17,7 +17,8 @@ import {
   Sparkles,
   User,
   Bot,
-  Trash2
+  Trash2,
+  Volume2
 } from "lucide-react";
 import {
   Select,
@@ -26,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import VoicePlayer from "@/components/VoicePlayer";
 
 interface Message {
   role: "user" | "assistant";
@@ -306,6 +308,13 @@ const StudentExplain = () => {
                           }`}
                         >
                           <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                          
+                          {/* Voice Player for assistant messages */}
+                          {msg.role === "assistant" && (
+                            <div className="mt-3 pt-3 border-t border-border/50">
+                              <VoicePlayer text={msg.content} />
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
