@@ -1,53 +1,99 @@
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, Sparkles, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
+
+const benefits = [
+  "تحليل شامل للمنهج",
+  "أسئلة ذكية مخصصة",
+  "تقارير مفصلة",
+  "دعم فني متواصل",
+];
 
 const CTASection = () => {
   return (
     <section className="py-24 relative overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 bg-gradient-primary opacity-95" />
-      <div className="absolute inset-0">
-        <div className="absolute top-10 right-10 w-64 h-64 bg-primary-foreground/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-10 left-10 w-80 h-80 bg-primary-foreground/10 rounded-full blur-3xl" />
+      {/* Background with gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-info dark:from-primary/90 dark:via-primary/80 dark:to-info/90" />
+      
+      {/* Decorative elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-[100px] translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent/20 rounded-full blur-[80px] -translate-x-1/2 translate-y-1/2" />
+        
+        {/* Floating shapes */}
+        <div className="absolute top-20 right-20 w-4 h-4 bg-white/20 rounded-full animate-float" />
+        <div className="absolute bottom-32 left-1/4 w-3 h-3 bg-white/15 rounded-full animate-float" style={{ animationDelay: "1s" }} />
+        <div className="absolute top-1/3 left-16 w-2 h-2 bg-white/25 rounded-full animate-float" style={{ animationDelay: "2s" }} />
       </div>
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="max-w-3xl mx-auto text-center space-y-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-foreground/10 border border-primary-foreground/20">
-            <Sparkles className="h-4 w-4 text-primary-foreground" />
-            <span className="text-sm font-medium text-primary-foreground">ابدأ مجاناً اليوم</span>
-          </div>
+        <div className="max-w-4xl mx-auto">
+          {/* Main content card */}
+          <div className="bg-white/10 dark:bg-white/5 backdrop-blur-xl rounded-3xl border border-white/20 p-8 md:p-12 text-center">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 border border-white/30 mb-8 animate-fade-in">
+              <Sparkles className="h-4 w-4 text-white" />
+              <span className="text-sm font-semibold text-white">ابدأ مجاناً اليوم</span>
+            </div>
 
-          <h2 className="text-3xl md:text-5xl font-extrabold text-primary-foreground leading-tight">
-            اكتشف مستوى طلابك
-            <br />
-            وحقق نتائج أفضل
-          </h2>
+            {/* Heading */}
+            <h2 
+              className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-white leading-tight mb-6 animate-fade-in"
+              style={{ animationDelay: "0.1s" }}
+            >
+              اكتشف مستوى طلابك
+              <br />
+              وحقق نتائج أفضل
+            </h2>
 
-          <p className="text-lg text-primary-foreground/80 max-w-xl mx-auto">
-            انضم لأكثر من ألف معلم يستخدمون منصتنا لتقييم طلابهم وتحديد نقطة البداية المثالية للشرح.
-          </p>
+            {/* Description */}
+            <p 
+              className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto mb-8 animate-fade-in"
+              style={{ animationDelay: "0.2s" }}
+            >
+              انضم لأكثر من ألف معلم يستخدمون منصتنا لتقييم طلابهم وتحديد نقطة البداية المثالية للشرح.
+            </p>
 
-          <div className="flex flex-wrap justify-center gap-4">
-            <Link to="/upload">
-              <Button 
-                size="xl" 
-                className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 gap-3"
-              >
-                ارفع منهجك الآن
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <Link to="/exam">
-              <Button 
-                variant="outline" 
-                size="xl"
-                className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
-              >
-                جرّب امتحان تجريبي
-              </Button>
-            </Link>
+            {/* Benefits list */}
+            <div 
+              className="flex flex-wrap justify-center gap-4 mb-10 animate-fade-in"
+              style={{ animationDelay: "0.3s" }}
+            >
+              {benefits.map((benefit, index) => (
+                <div 
+                  key={benefit}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20"
+                >
+                  <CheckCircle2 className="h-4 w-4 text-accent" />
+                  <span className="text-sm text-white font-medium">{benefit}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* CTA Buttons */}
+            <div 
+              className="flex flex-wrap justify-center gap-4 animate-fade-in"
+              style={{ animationDelay: "0.4s" }}
+            >
+              <Link to="/upload">
+                <Button 
+                  size="xl" 
+                  className="bg-white text-primary hover:bg-white/90 gap-3 shadow-xl shadow-black/20 group"
+                >
+                  ارفع منهجك الآن
+                  <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+                </Button>
+              </Link>
+              <Link to="/exams">
+                <Button 
+                  variant="outline" 
+                  size="xl"
+                  className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300"
+                >
+                  جرّب امتحان تجريبي
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, Menu, X, LogOut, User } from "lucide-react";
-import { useState } from "react";
+import { GraduationCap, Menu, X, LogOut, Moon, Sun } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
@@ -16,6 +16,32 @@ const Navbar = () => {
   const navigate = useNavigate();
   const { user, profile, role, signOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    setIsDark(isDarkMode);
+  }, []);
+
+  const toggleDarkMode = () => {
+    const newDarkMode = !isDark;
+    setIsDark(newDarkMode);
+    if (newDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+      setIsDark(true);
+    }
+  }, []);
 
   const getNavLinks = () => {
     const baseLinks = [{ path: "/", label: "الرئيسية" }];
@@ -27,7 +53,7 @@ const Navbar = () => {
     if (role === "teacher" || role === "admin") {
       return [
         ...baseLinks,
-        { path: "/upload", label: "رفع المنهج" },
+        { path: "/upload", label: "المناهج" },
         { path: "/exam-builder", label: "بناء الامتحان" },
         { path: "/dashboard", label: "لوحة التحكم" },
       ];
@@ -96,6 +122,20 @@ const Navbar = () => {
 
           {/* Auth Section */}
           <div className="hidden md:flex items-center gap-3">
+            {/* Dark mode toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleDarkMode}
+              className="rounded-full w-9 h-9"
+            >
+              {isDark ? (
+                <Sun className="h-4 w-4 text-accent" />
+              ) : (
+                <Moon className="h-4 w-4 text-muted-foreground" />
+              )}
+            </Button>
+
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
