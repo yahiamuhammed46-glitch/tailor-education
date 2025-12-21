@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Brain, Sparkles, BookOpen, Target, BarChart3, Upload, Clock, Users, GraduationCap, Lightbulb, Award } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useParallax } from "@/hooks/use-parallax";
 
 // Grid icons for the creative background
 const gridIcons = [
@@ -20,7 +21,9 @@ const gridIcons = [
 ];
 
 const HeroSection = () => {
-  const [activeIndex, setActiveIndex] = useState(5); // Center icon
+  const [activeIndex, setActiveIndex] = useState(5);
+  const parallaxOffset = useParallax({ speed: 0.3 });
+  const parallaxOffsetSlow = useParallax({ speed: 0.15 });
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -36,10 +39,13 @@ const HeroSection = () => {
         {/* Base gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-primary/5 dark:to-primary/10" />
         
-        {/* Animated grid */}
+        {/* Animated grid with parallax */}
         <div 
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 grid grid-cols-4 sm:grid-cols-4 gap-3 sm:gap-4 -rotate-12 scale-125 sm:scale-150 opacity-40 dark:opacity-60"
-          style={{ perspective: "1000px" }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 grid grid-cols-4 sm:grid-cols-4 gap-3 sm:gap-4 -rotate-12 scale-125 sm:scale-150 opacity-40 dark:opacity-60 transition-transform duration-100"
+          style={{ 
+            perspective: "1000px",
+            transform: `translate(-50%, calc(-50% + ${parallaxOffsetSlow}px))`
+          }}
         >
           {[...Array(16)].map((_, i) => {
             const IconComponent = gridIcons[i % gridIcons.length].icon;
@@ -88,13 +94,25 @@ const HeroSection = () => {
           })}
         </div>
 
-        {/* Glow effects */}
-        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-primary/10 dark:bg-primary/20 rounded-full blur-[120px] animate-pulse-slow" />
-        <div className="absolute bottom-1/4 left-1/4 w-80 h-80 bg-accent/10 dark:bg-accent/15 rounded-full blur-[100px] animate-pulse-slow" style={{ animationDelay: "2s" }} />
+        {/* Glow effects with parallax */}
+        <div 
+          className="absolute top-1/4 right-1/4 w-96 h-96 bg-primary/10 dark:bg-primary/20 rounded-full blur-[120px] animate-pulse-slow transition-transform duration-100"
+          style={{ transform: `translateY(${parallaxOffset * 0.5}px)` }}
+        />
+        <div 
+          className="absolute bottom-1/4 left-1/4 w-80 h-80 bg-accent/10 dark:bg-accent/15 rounded-full blur-[100px] animate-pulse-slow transition-transform duration-100" 
+          style={{ 
+            animationDelay: "2s",
+            transform: `translateY(${parallaxOffset * 0.8}px)`
+          }} 
+        />
       </div>
 
-      {/* Content */}
-      <div className="container mx-auto px-4 py-20 relative z-10">
+      {/* Content with parallax */}
+      <div 
+        className="container mx-auto px-4 py-20 relative z-10 transition-transform duration-100"
+        style={{ transform: `translateY(${parallaxOffset * 0.2}px)` }}
+      >
         <div className="max-w-4xl mx-auto text-center">
           {/* Badge */}
           <div 

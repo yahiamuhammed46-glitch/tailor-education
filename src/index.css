@@ -122,6 +122,7 @@
 
   html {
     direction: rtl;
+    scroll-behavior: smooth;
   }
 
   body {

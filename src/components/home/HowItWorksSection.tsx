@@ -1,4 +1,6 @@
 import { FileUp, Settings, PlayCircle, BarChart3 } from "lucide-react";
+import { useRef } from "react";
+import { useElementParallax } from "@/hooks/use-parallax";
 
 const steps = [
   {
@@ -59,16 +61,28 @@ const colorClasses = {
 };
 
 const HowItWorksSection = () => {
+  const sectionRef = useRef<HTMLElement>(null);
+  const parallax = useElementParallax(sectionRef, { speed: 0.25 });
+
   return (
-    <section className="py-24 relative overflow-hidden">
-      {/* Background */}
+    <section ref={sectionRef} className="py-24 relative overflow-hidden">
+      {/* Background with parallax */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/2 left-0 w-full h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+        <div 
+          className="absolute top-1/2 left-0 w-full h-px bg-gradient-to-r from-transparent via-border to-transparent transition-transform duration-100"
+          style={{ transform: `translateY(${parallax.y * 0.2}px)` }}
+        />
       </div>
 
       <div className="container mx-auto px-4 relative z-10">
-        {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-16 animate-fade-in">
+        {/* Header with parallax */}
+        <div 
+          className="text-center max-w-2xl mx-auto mb-16 animate-fade-in transition-all duration-100"
+          style={{ 
+            transform: `translateY(${parallax.y * 0.15}px)`,
+            opacity: parallax.opacity 
+          }}
+        >
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-info/10 dark:bg-info/20 border border-info/20 mb-6">
             <span className="w-2 h-2 rounded-full bg-info animate-pulse" />
             <span className="text-sm font-medium text-info">خطوات بسيطة</span>
