@@ -17,105 +17,77 @@ const CTASection = () => {
   const scrollOffset = useParallax({ speed: 0.1, direction: "down" });
 
   return (
-    <section ref={sectionRef} className="py-24 relative overflow-hidden">
+    <section ref={sectionRef} className="py-16 relative overflow-hidden">
       {/* Background with gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-info dark:from-primary/90 dark:via-primary/80 dark:to-info/90" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/95 to-info dark:from-primary/90 dark:via-primary/80 dark:to-info/90" />
       
-      {/* Decorative elements with parallax */}
-      <div className="absolute inset-0 overflow-hidden">
+      {/* Subtle decorative elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
-          className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-[100px] transition-transform duration-100"
-          style={{ transform: `translate(50%, calc(-50% + ${scrollOffset * 0.5}px))` }}
+          className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-[80px] transition-transform duration-100"
+          style={{ transform: `translate(30%, calc(-30% + ${scrollOffset * 0.3}px))` }}
         />
         <div 
-          className="absolute bottom-0 left-0 w-80 h-80 bg-accent/20 rounded-full blur-[80px] transition-transform duration-100"
-          style={{ transform: `translate(-50%, calc(50% + ${scrollOffset * 0.3}px))` }}
-        />
-        
-        {/* Floating shapes with parallax */}
-        <div 
-          className="absolute top-20 right-20 w-4 h-4 bg-white/20 rounded-full animate-float transition-transform duration-100"
-          style={{ transform: `translateY(${scrollOffset * 0.8}px)` }}
-        />
-        <div 
-          className="absolute bottom-32 left-1/4 w-3 h-3 bg-white/15 rounded-full animate-float transition-transform duration-100" 
-          style={{ animationDelay: "1s", transform: `translateY(${scrollOffset * 0.6}px)` }}
-        />
-        <div 
-          className="absolute top-1/3 left-16 w-2 h-2 bg-white/25 rounded-full animate-float transition-transform duration-100" 
-          style={{ animationDelay: "2s", transform: `translateY(${scrollOffset * 0.4}px)` }}
+          className="absolute bottom-0 left-0 w-48 h-48 bg-info/10 rounded-full blur-[60px] transition-transform duration-100"
+          style={{ transform: `translate(-30%, calc(30% + ${scrollOffset * 0.2}px))` }}
         />
       </div>
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="max-w-4xl mx-auto">
-          {/* Main content card with parallax */}
+        <div className="max-w-3xl mx-auto">
+          {/* Main content card - more compact */}
           <div 
-            className="bg-white/10 dark:bg-white/5 backdrop-blur-xl rounded-3xl border border-white/20 p-8 md:p-12 text-center transition-all duration-100"
+            className="bg-white/5 dark:bg-white/[0.03] backdrop-blur-sm rounded-2xl border border-white/10 p-6 md:p-8 text-center transition-all duration-100"
             style={{ 
-              transform: `translateY(${parallax.y * 0.1}px) scale(${parallax.scale})`,
+              transform: `translateY(${parallax.y * 0.05}px)`,
               opacity: parallax.opacity 
             }}
           >
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 border border-white/30 mb-8 animate-fade-in">
-              <Sparkles className="h-4 w-4 text-white" />
-              <span className="text-sm font-semibold text-white">ابدأ مجاناً اليوم</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 mb-5">
+              <Sparkles className="h-3.5 w-3.5 text-white" />
+              <span className="text-xs font-semibold text-white">ابدأ مجاناً اليوم</span>
             </div>
 
-            {/* Heading */}
-            <h2 
-              className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-white leading-tight mb-6 animate-fade-in"
-              style={{ animationDelay: "0.1s" }}
-            >
-              اكتشف مستوى طلابك
-              <br />
-              وحقق نتائج أفضل
+            {/* Heading - smaller */}
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight mb-3">
+              اكتشف مستوى طلابك وحقق نتائج أفضل
             </h2>
 
-            {/* Description */}
-            <p 
-              className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto mb-8 animate-fade-in"
-              style={{ animationDelay: "0.2s" }}
-            >
+            {/* Description - more compact */}
+            <p className="text-sm md:text-base text-white/70 max-w-xl mx-auto mb-5">
               انضم لأكثر من ألف معلم يستخدمون منصتنا لتقييم طلابهم وتحديد نقطة البداية المثالية للشرح.
             </p>
 
-            {/* Benefits list */}
-            <div 
-              className="flex flex-wrap justify-center gap-4 mb-10 animate-fade-in"
-              style={{ animationDelay: "0.3s" }}
-            >
-              {benefits.map((benefit, index) => (
+            {/* Benefits list - smaller pills */}
+            <div className="flex flex-wrap justify-center gap-2 mb-6">
+              {benefits.map((benefit) => (
                 <div 
                   key={benefit}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10"
                 >
-                  <CheckCircle2 className="h-4 w-4 text-accent" />
-                  <span className="text-sm text-white font-medium">{benefit}</span>
+                  <CheckCircle2 className="h-3.5 w-3.5 text-accent" />
+                  <span className="text-xs text-white/90 font-medium">{benefit}</span>
                 </div>
               ))}
             </div>
 
-            {/* CTA Buttons */}
-            <div 
-              className="flex flex-wrap justify-center gap-4 animate-fade-in"
-              style={{ animationDelay: "0.4s" }}
-            >
+            {/* CTA Buttons - smaller */}
+            <div className="flex flex-wrap justify-center gap-3">
               <Link to="/upload">
                 <Button 
-                  size="xl" 
-                  className="bg-white text-primary hover:bg-white/90 gap-3 shadow-xl shadow-black/20 group"
+                  size="lg" 
+                  className="bg-white text-primary hover:bg-white/90 gap-2 shadow-lg shadow-black/10 group text-sm"
                 >
                   ارفع منهجك الآن
-                  <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+                  <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
                 </Button>
               </Link>
               <Link to="/exams">
                 <Button 
                   variant="outline" 
-                  size="xl"
-                  className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300"
+                  size="lg"
+                  className="border-white/20 text-white hover:bg-white/10 hover:border-white/30 transition-all duration-300 text-sm"
                 >
                   جرّب امتحان تجريبي
                 </Button>
