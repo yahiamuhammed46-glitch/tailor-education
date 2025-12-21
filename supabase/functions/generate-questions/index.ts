@@ -43,7 +43,7 @@ serve(async (req) => {
     // Get topics details
     const { data: topics, error: topicsError } = await supabase
       .from("topics")
-      .select("*")
+      .select("*, curriculums(content, name, subject)")
       .in("id", topicIds)
       .order("order_index");
 
@@ -51,10 +51,18 @@ serve(async (req) => {
       throw new Error("Failed to fetch topics");
     }
 
+    // Get curriculum content from the first topic's curriculum
+    let fullCurriculumContent = curriculumContent || "";
+    if (topics.length > 0 && topics[0].curriculums) {
+      const curriculum = topics[0].curriculums as any;
+      fullCurriculumContent = curriculum.content || curriculumContent || "";
+      console.log("Using curriculum content, length:", fullCurriculumContent.length);
+    }
+
     const difficultyMap: Record<string, string> = {
-      easy: "سهل",
-      medium: "متوسط",
-      hard: "صعب",
+      easy: "سهل - أسئلة مباشرة تختبر الفهم الأساسي",
+      medium: "متوسط - أسئلة تتطلب فهماً عميقاً وتطبيقاً",
+      hard: "صعب - أسئلة تحليلية وتطبيقية معقدة",
     };
 
     const questionTypesList = [];
@@ -69,25 +77,27 @@ serve(async (req) => {
     for (const topic of topics) {
       console.log(`Generating ${questionsPerTopic} questions for topic: ${topic.name}`);
 
-      const systemPrompt = `أنت خبير في إنشاء أسئلة امتحانات تعليمية. مهمتك هي إنشاء أسئلة متنوعة وحقيقية ومفيدة للتقييم.
+      const systemPrompt = `أنت خبير في إنشاء أسئلة امتحانات تعليمية. مهمتك هي إنشاء أسئلة من المحتوى الفعلي للمنهج الدراسي المقدم.
 
-قواعد مهمة:
-1. الأسئلة يجب أن تكون واضحة ومحددة
-2. تجنب الأسئلة الغامضة أو المربكة
-3. اجعل الخيارات في أسئلة الاختيار من متعدد متقاربة في الطول
-4. الإجابة الصحيحة يجب أن تكون واحدة فقط وواضحة
-5. أسئلة صح وغلط يجب أن تكون جمل كاملة وواضحة
-6. الأسئلة التطبيقية يجب أن تكون سيناريوهات واقعية
+قواعد مهمة جداً:
+1. الأسئلة يجب أن تكون مستخرجة مباشرة من محتوى المنهج المقدم
+2. لا تنشئ أسئلة من معلوماتك الخاصة - استخدم فقط ما هو موجود في المنهج
+3. الأسئلة يجب أن تكون واضحة ومحددة
+4. تجنب الأسئلة الغامضة أو المربكة
+5. اجعل الخيارات في أسئلة الاختيار من متعدد متقاربة في الطول
+6. الإجابة الصحيحة يجب أن تكون واحدة فقط وواضحة
+7. أسئلة صح وغلط يجب أن تكون جمل كاملة وواضحة
+8. الأسئلة التطبيقية يجب أن تكون سيناريوهات واقعية من المنهج
 
 رد بصيغة JSON فقط:
 {
   "questions": [
     {
       "question_type": "multipleChoice|trueFalse|shortAnswer|scenario",
-      "question_text": "نص السؤال",
+      "question_text": "نص السؤال - يجب أن يكون من محتوى المنهج",
       "options": ["خيار 1", "خيار 2", "خيار 3", "خيار 4"],
       "correct_answer": "الإجابة الصحيحة بالضبط كما هي في الخيارات",
-      "explanation": "شرح مختصر للإجابة الصحيحة",
+      "explanation": "شرح الإجابة مع الإشارة للجزء ذي الصلة من المنهج",
       "difficulty": "easy|medium|hard"
     }
   ]
@@ -98,17 +108,27 @@ serve(async (req) => {
 - للأسئلة القصيرة والتطبيقية: options يكون null
 - difficulty يجب أن يتوافق مع المستوى المطلوب`;
 
-      const userPrompt = `أنشئ ${questionsPerTopic} أسئلة عن الموضوع التالي:
+      // Extract relevant content for this topic from curriculum
+      const topicDescription = topic.description || topic.name;
+      
+      const userPrompt = `أنشئ ${questionsPerTopic} أسئلة من محتوى المنهج التالي عن الموضوع المحدد.
 
-الوحدة: ${topic.name}
-${topic.description ? `الوصف: ${topic.description}` : ""}
+═══════════════════════════════════════
+📚 محتوى المنهج الدراسي الكامل:
+═══════════════════════════════════════
+${fullCurriculumContent.substring(0, 12000)}
 
-مستوى الصعوبة المطلوب: ${difficultyMap[difficulty] || "متوسط"}
-أنواع الأسئلة المطلوبة: ${questionTypesList.join("، ") || "جميع الأنواع"}
+═══════════════════════════════════════
+🎯 الوحدة المستهدفة: ${topic.name}
+📝 وصف الوحدة: ${topicDescription}
+═══════════════════════════════════════
 
-${curriculumContent ? `محتوى المنهج للمرجعية:\n${curriculumContent.substring(0, 8000)}` : ""}
+⚙️ إعدادات الأسئلة:
+- مستوى الصعوبة: ${difficultyMap[difficulty] || "متوسط"}
+- أنواع الأسئلة المطلوبة: ${questionTypesList.join("، ") || "جميع الأنواع"}
+- عدد الأسئلة: ${questionsPerTopic}
 
-أنشئ أسئلة متنوعة وحقيقية تختبر فهم الطالب للموضوع.`;
+🔴 تنبيه مهم: يجب أن تكون جميع الأسئلة مستخرجة من المحتوى أعلاه فقط. لا تستخدم معلومات خارجية.`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -122,7 +142,6 @@ ${curriculumContent ? `محتوى المنهج للمرجعية:\n${curriculumCo
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
-          temperature: 0.7,
         }),
       });
 
@@ -148,6 +167,8 @@ ${curriculumContent ? `محتوى المنهج للمرجعية:\n${curriculumCo
         continue;
       }
 
+      console.log("Generated questions response for topic:", topic.name);
+
       try {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
@@ -167,6 +188,8 @@ ${curriculumContent ? `محتوى المنهج للمرجعية:\n${curriculumCo
               order_index: allQuestions.length + idx + 1,
             });
           });
+          
+          console.log(`Added ${questions.length} questions for topic: ${topic.name}`);
         }
       } catch (parseError) {
         console.error("Failed to parse questions for topic:", topic.name, parseError);
