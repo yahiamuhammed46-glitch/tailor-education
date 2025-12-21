@@ -44,7 +44,8 @@ const Navbar = () => {
   }, []);
 
   const getNavLinks = () => {
-    const baseLinks = [
+    // Public links only shown when not logged in
+    const publicLinks = [
       { path: "/", label: "الرئيسية" },
       { path: "/#about", label: "من نحن", isAnchor: true },
       { path: "/#services", label: "الخدمات", isAnchor: true },
@@ -52,12 +53,12 @@ const Navbar = () => {
     ];
 
     if (!user) {
-      return baseLinks;
+      return publicLinks;
     }
 
+    // Logged in users only see role-specific links
     if (role === "teacher" || role === "admin") {
       return [
-        ...baseLinks,
         { path: "/upload", label: "المناهج" },
         { path: "/exam-builder", label: "بناء الامتحان" },
         { path: "/dashboard", label: "لوحة التحكم" },
@@ -66,7 +67,6 @@ const Navbar = () => {
 
     if (role === "student") {
       return [
-        ...baseLinks,
         { path: "/student", label: "لوحة التحكم" },
         { path: "/student/curriculums", label: "المناهج" },
         { path: "/student/explain", label: "الشرح الذكي" },
@@ -74,7 +74,7 @@ const Navbar = () => {
       ];
     }
 
-    return baseLinks;
+    return publicLinks;
   };
 
   const handleNavClick = (link: { path: string; label: string; isAnchor?: boolean }) => {
