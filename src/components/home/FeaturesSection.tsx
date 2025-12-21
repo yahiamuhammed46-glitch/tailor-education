@@ -1,4 +1,6 @@
 import { Upload, Brain, Clock, BarChart3, Target, Users } from "lucide-react";
+import { useRef } from "react";
+import { useElementParallax } from "@/hooks/use-parallax";
 
 const features = [
   {
@@ -52,17 +54,32 @@ const features = [
 ];
 
 const FeaturesSection = () => {
+  const sectionRef = useRef<HTMLElement>(null);
+  const parallax = useElementParallax(sectionRef, { speed: 0.2 });
+
   return (
-    <section className="py-24 bg-secondary/30 dark:bg-secondary/10 relative overflow-hidden">
-      {/* Background decorations */}
+    <section ref={sectionRef} className="py-24 bg-secondary/30 dark:bg-secondary/10 relative overflow-hidden">
+      {/* Background decorations with parallax */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-72 h-72 bg-primary/5 dark:bg-primary/10 rounded-full blur-[100px]" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/5 dark:bg-accent/10 rounded-full blur-[120px]" />
+        <div 
+          className="absolute top-0 left-1/4 w-72 h-72 bg-primary/5 dark:bg-primary/10 rounded-full blur-[100px] transition-transform duration-100"
+          style={{ transform: `translateY(${parallax.y * 0.5}px)` }}
+        />
+        <div 
+          className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/5 dark:bg-accent/10 rounded-full blur-[120px] transition-transform duration-100"
+          style={{ transform: `translateY(${parallax.y * -0.3}px)` }}
+        />
       </div>
 
       <div className="container mx-auto px-4 relative z-10">
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-16 animate-fade-in">
+        <div 
+          className="text-center max-w-2xl mx-auto mb-16 animate-fade-in transition-all duration-100"
+          style={{ 
+            transform: `translateY(${parallax.y * 0.1}px)`,
+            opacity: parallax.opacity 
+          }}
+        >
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 dark:bg-primary/20 border border-primary/20 mb-6">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             <span className="text-sm font-medium text-primary">مميزات المنصة</span>
