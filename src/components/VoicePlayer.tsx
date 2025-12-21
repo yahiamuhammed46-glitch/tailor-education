@@ -134,6 +134,11 @@ const VoicePlayer = ({ text, compact = false }: VoicePlayerProps) => {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>الصوت</Label>
+              {arabicVoices.length === 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  لم يتم العثور على أصوات عربية. جرب متصفح آخر مثل Chrome أو Edge للحصول على أصوات عربية أفضل.
+                </p>
+              )}
               <Select
                 value={selectedVoice?.name || ""}
                 onValueChange={(name) => {
@@ -152,7 +157,7 @@ const VoicePlayer = ({ text, compact = false }: VoicePlayerProps) => {
                       </div>
                       {arabicVoices.map((voice) => (
                         <SelectItem key={voice.name} value={voice.name}>
-                          {voice.name}
+                          {voice.name} ({voice.lang})
                         </SelectItem>
                       ))}
                     </>
@@ -164,7 +169,7 @@ const VoicePlayer = ({ text, compact = false }: VoicePlayerProps) => {
                       </div>
                       {otherVoices.slice(0, 5).map((voice) => (
                         <SelectItem key={voice.name} value={voice.name}>
-                          {voice.name}
+                          {voice.name} ({voice.lang})
                         </SelectItem>
                       ))}
                     </>
