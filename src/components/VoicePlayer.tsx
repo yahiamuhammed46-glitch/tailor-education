@@ -22,14 +22,28 @@ interface VoicePlayerProps {
   compact?: boolean;
 }
 
-// ElevenLabs voices with Arabic support
+// ElevenLabs voices with Arabic support - expanded collection
 const ELEVENLABS_VOICES = [
-  { id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda", description: "صوت أنثوي واضح" },
-  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", description: "صوت أنثوي طبيعي" },
-  { id: "JBFqnCBsd6RMkjVDRZzb", name: "George", description: "صوت ذكوري عميق" },
-  { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", description: "صوت ذكوري واضح" },
-  { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", description: "صوت أنثوي ناعم" },
-  { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", description: "صوت ذكوري شاب" },
+  // أصوات عربية متخصصة
+  { id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda", description: "صوت أنثوي واضح ومميز", category: "أنثوي" },
+  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", description: "صوت أنثوي طبيعي ودافئ", category: "أنثوي" },
+  { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura", description: "صوت أنثوي احترافي", category: "أنثوي" },
+  { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", description: "صوت أنثوي ناعم وهادئ", category: "أنثوي" },
+  { id: "cgSgspJ2msm6clMCkdW9", name: "Jessica", description: "صوت أنثوي حيوي", category: "أنثوي" },
+  { id: "Xb7hH8MSUJpSbSDYk0k2", name: "Alice", description: "صوت أنثوي واثق", category: "أنثوي" },
+  { id: "SAz9YHcvj6GT2YYXdXww", name: "River", description: "صوت محايد هادئ", category: "أنثوي" },
+  // أصوات ذكورية
+  { id: "JBFqnCBsd6RMkjVDRZzb", name: "George", description: "صوت ذكوري عميق وواضح", category: "ذكوري" },
+  { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", description: "صوت ذكوري بريطاني", category: "ذكوري" },
+  { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", description: "صوت ذكوري شاب", category: "ذكوري" },
+  { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger", description: "صوت ذكوري ناضج", category: "ذكوري" },
+  { id: "IKne3meq5aSn9XLyUdCD", name: "Charlie", description: "صوت ذكوري ودود", category: "ذكوري" },
+  { id: "N2lVS1w4EtoT3dr4eOWO", name: "Callum", description: "صوت ذكوري قوي", category: "ذكوري" },
+  { id: "bIHbv24MWmeRgasZH58o", name: "Will", description: "صوت ذكوري ودي", category: "ذكوري" },
+  { id: "cjVigY5qzO86Huf0OWal", name: "Eric", description: "صوت ذكوري أمريكي", category: "ذكوري" },
+  { id: "iP95p4xoKVk53GoZ742B", name: "Chris", description: "صوت ذكوري واضح", category: "ذكوري" },
+  { id: "nPczCjzI2devNBz1zQrb", name: "Brian", description: "صوت ذكوري سلس", category: "ذكوري" },
+  { id: "pqHfZKP75CvOlQylNhV4", name: "Bill", description: "صوت ذكوري دافئ", category: "ذكوري" },
 ];
 
 const VoicePlayer = ({ text, compact = false }: VoicePlayerProps) => {
@@ -286,16 +300,30 @@ const VoicePlayer = ({ text, compact = false }: VoicePlayerProps) => {
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {ELEVENLABS_VOICES.map((voice) => (
-                      <SelectItem key={voice.id} value={voice.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{voice.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {voice.description}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                    <div className="max-h-64 overflow-y-auto">
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">أصوات أنثوية</div>
+                      {ELEVENLABS_VOICES.filter(v => v.category === "أنثوي").map((voice) => (
+                        <SelectItem key={voice.id} value={voice.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{voice.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {voice.description}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">أصوات ذكورية</div>
+                      {ELEVENLABS_VOICES.filter(v => v.category === "ذكوري").map((voice) => (
+                        <SelectItem key={voice.id} value={voice.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{voice.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {voice.description}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </div>
                   </SelectContent>
                 </Select>
               </div>
