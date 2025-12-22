@@ -150,12 +150,28 @@ serve(async (req) => {
     const weakTopics = sortedTopics.filter(t => t.score < 60);
     const startPointTopic = weakTopics[0] || sortedTopics[sortedTopics.length - 1];
 
+    // Get wrong answers details for detailed weakness analysis
+    const wrongAnswers = attempt.student_answers
+      .filter((a: any) => a.answer?.trim().toLowerCase() !== a.question.correct_answer?.trim().toLowerCase())
+      .map((a: any) => ({
+        questionText: a.question.question_text,
+        studentAnswer: a.answer,
+        correctAnswer: a.question.correct_answer,
+        topicName: a.question.topic.name,
+        topicDescription: a.question.topic.description,
+        explanation: a.question.explanation,
+      }));
+
     // Use AI to generate comprehensive analysis
     const topicsSummary = sortedTopics.map(t => 
       `- ${t.topicName}: ${t.score}% (${t.correct}/${t.total})`
     ).join("\n");
 
-    const systemPrompt = `أنت محلل تعليمي متخصص. مهمتك تحليل نتائج الطالب وتقديم تقرير شامل.
+    const wrongAnswersSummary = wrongAnswers.map((w: any, i: number) => 
+      `${i + 1}. السؤال: ${w.questionText}\n   إجابة الطالب: ${w.studentAnswer}\n   الإجابة الصحيحة: ${w.correctAnswer}\n   الوحدة: ${w.topicName}`
+    ).join("\n\n");
+
+    const systemPrompt = `أنت محلل تعليمي متخصص. مهمتك تحليل نتائج الطالب وتقديم تقرير شامل مع تحديد نقاط الضعف المحددة من المنهج.
 
 رد بصيغة JSON:
 {
@@ -167,7 +183,28 @@ serve(async (req) => {
     "توصية 1 للتحسين",
     "توصية 2 للتحسين",
     "توصية 3 للتحسين"
-  ]
+  ],
+  "detailed_weaknesses": [
+    {
+      "topic": "اسم الوحدة",
+      "specific_gaps": ["المفهوم أو المهارة المحددة التي يحتاج الطالب لتحسينها"],
+      "estimated_hours": 2,
+      "priority": "high"
+    }
+  ],
+  "study_plan": {
+    "total_hours": 10,
+    "daily_hours": 2,
+    "completion_days": 5,
+    "tasks": [
+      {
+        "task": "وصف المهمة",
+        "topic": "الوحدة",
+        "duration_hours": 2,
+        "deadline_days": 1
+      }
+    ]
+  }
 }`;
 
     const userPrompt = `حلل نتائج الطالب التالية:
@@ -178,9 +215,16 @@ serve(async (req) => {
 نتائج الوحدات:
 ${topicsSummary}
 
+الأسئلة الخاطئة:
+${wrongAnswersSummary || "لا توجد أسئلة خاطئة"}
+
 الوحدة المقترح البدء منها: ${startPointTopic?.topicName || "غير محدد"}
 
-قدم تحليلاً شاملاً مع توصيات عملية للتحسين.`;
+المطلوب:
+1. قدم تحليلاً شاملاً مع توصيات عملية
+2. حدد نقاط الضعف المحددة من المنهج بناءً على الأسئلة الخاطئة
+3. اقترح خطة دراسية مع وقت تقديري للإنجاز
+4. حدد الأولوية لكل نقطة ضعف (high, medium, low)`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -204,6 +248,23 @@ ${topicsSummary}
       strengths: [] as string[],
       weaknesses: [] as string[],
       recommendations: ["مراجعة الوحدات الضعيفة", "التركيز على الفهم العميق", "حل المزيد من التمارين"],
+      detailed_weaknesses: [] as Array<{
+        topic: string;
+        specific_gaps: string[];
+        estimated_hours: number;
+        priority: string;
+      }>,
+      study_plan: {
+        total_hours: weakTopics.length * 2,
+        daily_hours: 2,
+        completion_days: Math.max(weakTopics.length, 3),
+        tasks: weakTopics.map((t, i) => ({
+          task: `مراجعة وفهم ${t.topicName}`,
+          topic: t.topicName,
+          duration_hours: 2,
+          deadline_days: i + 1,
+        })),
+      },
     };
 
     if (response.ok) {
@@ -247,6 +308,7 @@ ${topicsSummary}
         })),
         analysis,
         startPoint: startPointTopic?.topicName,
+        wrongAnswers,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

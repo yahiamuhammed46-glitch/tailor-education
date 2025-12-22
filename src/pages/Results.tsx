@@ -24,7 +24,10 @@ import {
   BarChart3,
   Brain,
   Zap,
-  Star
+  Star,
+  Calendar,
+  Timer,
+  ListTodo
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -38,12 +41,35 @@ interface TopicScore {
   topicName?: string;
 }
 
+interface DetailedWeakness {
+  topic: string;
+  specific_gaps: string[];
+  estimated_hours: number;
+  priority: string;
+}
+
+interface StudyTask {
+  task: string;
+  topic: string;
+  duration_hours: number;
+  deadline_days: number;
+}
+
+interface StudyPlan {
+  total_hours: number;
+  daily_hours: number;
+  completion_days: number;
+  tasks: StudyTask[];
+}
+
 interface AnalysisReport {
   overall_assessment: string;
   start_point_description: string;
   strengths: string[];
   weaknesses: string[];
   recommendations: string[];
+  detailed_weaknesses?: DetailedWeakness[];
+  study_plan?: StudyPlan;
 }
 
 interface ResultsData {
@@ -544,9 +570,137 @@ const Results = () => {
                 </div>
               )}
 
+              {/* Detailed Weaknesses from Curriculum */}
+              {analysis?.detailed_weaknesses && analysis.detailed_weaknesses.length > 0 && (
+                <div className="bg-card rounded-2xl border border-warning/30 p-6 animate-slide-up" style={{ animationDelay: "0.22s" }}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-2xl bg-warning/10 flex items-center justify-center">
+                      <ListTodo className="h-6 w-6 text-warning" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg">نقاط الضعف التفصيلية من المنهج</h3>
+                      <p className="text-sm text-muted-foreground">المفاهيم والمهارات المحددة التي تحتاج تحسين</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    {analysis.detailed_weaknesses.map((weakness, i) => (
+                      <div 
+                        key={i} 
+                        className={`p-4 rounded-xl border ${
+                          weakness.priority === 'high' 
+                            ? 'bg-destructive/5 border-destructive/20' 
+                            : weakness.priority === 'medium'
+                            ? 'bg-warning/5 border-warning/20'
+                            : 'bg-muted/50 border-border/50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded-lg text-xs font-bold ${
+                              weakness.priority === 'high' 
+                                ? 'bg-destructive/10 text-destructive' 
+                                : weakness.priority === 'medium'
+                                ? 'bg-warning/10 text-warning'
+                                : 'bg-muted text-muted-foreground'
+                            }`}>
+                              {weakness.priority === 'high' ? 'أولوية عالية' : weakness.priority === 'medium' ? 'أولوية متوسطة' : 'أولوية منخفضة'}
+                            </span>
+                            <span className="font-bold text-foreground">{weakness.topic}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Timer className="h-4 w-4" />
+                            <span>{weakness.estimated_hours} ساعة</span>
+                          </div>
+                        </div>
+                        <ul className="space-y-1.5 mt-3">
+                          {weakness.specific_gaps.map((gap, j) => (
+                            <li key={j} className="flex items-start gap-2 text-sm text-muted-foreground">
+                              <span className="text-warning mt-0.5">▸</span>
+                              <span>{gap}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Study Plan with Deadlines */}
+              {analysis?.study_plan && analysis.study_plan.tasks.length > 0 && (
+                <div className="bg-card rounded-2xl border border-info/30 p-6 animate-slide-up" style={{ animationDelay: "0.25s" }}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-2xl bg-info/10 flex items-center justify-center">
+                      <Calendar className="h-6 w-6 text-info" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg">خطة الدراسة المقترحة</h3>
+                      <p className="text-sm text-muted-foreground">مهام محددة بوقت للإنجاز</p>
+                    </div>
+                  </div>
+
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="bg-info/5 rounded-xl p-3 text-center">
+                      <div className="text-xl font-bold text-info">{analysis.study_plan.total_hours}</div>
+                      <p className="text-xs text-muted-foreground">ساعة إجمالية</p>
+                    </div>
+                    <div className="bg-info/5 rounded-xl p-3 text-center">
+                      <div className="text-xl font-bold text-info">{analysis.study_plan.daily_hours}</div>
+                      <p className="text-xs text-muted-foreground">ساعة يومياً</p>
+                    </div>
+                    <div className="bg-info/5 rounded-xl p-3 text-center">
+                      <div className="text-xl font-bold text-info">{analysis.study_plan.completion_days}</div>
+                      <p className="text-xs text-muted-foreground">يوم للإنجاز</p>
+                    </div>
+                  </div>
+
+                  {/* Tasks */}
+                  <div className="space-y-3">
+                    {analysis.study_plan.tasks.map((task, i) => {
+                      const deadline = new Date();
+                      deadline.setDate(deadline.getDate() + task.deadline_days);
+                      const formattedDeadline = deadline.toLocaleDateString('ar-EG', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric' 
+                      });
+
+                      return (
+                        <div 
+                          key={i} 
+                          className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl border border-border/50"
+                        >
+                          <span className="w-8 h-8 rounded-full bg-info/10 text-info flex items-center justify-center text-sm font-bold shrink-0">
+                            {i + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-foreground truncate">{task.task}</p>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                              <span className="flex items-center gap-1">
+                                <BookOpen className="h-3 w-3" />
+                                {task.topic}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Timer className="h-3 w-3" />
+                                {task.duration_hours} ساعة
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-left shrink-0">
+                            <div className="text-xs font-medium text-info">{formattedDeadline}</div>
+                            <div className="text-xs text-muted-foreground">الموعد النهائي</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Strengths & Weaknesses */}
               {analysis && (analysis.strengths?.length > 0 || analysis.weaknesses?.length > 0) && (
-                <div className="bg-card rounded-2xl border border-border/50 p-6 animate-slide-up" style={{ animationDelay: "0.25s" }}>
+                <div className="bg-card rounded-2xl border border-border/50 p-6 animate-slide-up" style={{ animationDelay: "0.28s" }}>
                   {analysis.strengths?.length > 0 && (
                     <div className="mb-5">
                       <div className="flex items-center gap-2 mb-3">
@@ -567,7 +721,7 @@ const Results = () => {
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <AlertTriangle className="h-5 w-5 text-destructive" />
-                        <h4 className="font-bold text-destructive">نقاط الضعف</h4>
+                        <h4 className="font-bold text-destructive">نقاط الضعف العامة</h4>
                       </div>
                       <ul className="space-y-2">
                         {analysis.weaknesses.map((w, i) => (
