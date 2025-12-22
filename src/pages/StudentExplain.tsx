@@ -17,9 +17,9 @@ import {
   Sparkles,
   User,
   Bot,
-  Trash2,
-  Volume2
+  Trash2
 } from "lucide-react";
+import VisualGenerator from "@/components/explain/VisualGenerator";
 import {
   Select,
   SelectContent,
@@ -309,10 +309,14 @@ const StudentExplain = () => {
                         >
                           <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                           
-                          {/* Voice Player for assistant messages */}
+                          {/* Voice Player and Visual Generator for assistant messages */}
                           {msg.role === "assistant" && (
-                            <div className="mt-3 pt-3 border-t border-border/50">
+                            <div className="mt-3 pt-3 border-t border-border/50 space-y-4">
                               <VoicePlayer text={msg.content} />
+                              <VisualGenerator 
+                                topic={messages.find(m => m.role === "user")?.content || ""} 
+                                context={msg.content}
+                              />
                             </div>
                           )}
                         </div>
