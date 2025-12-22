@@ -154,63 +154,72 @@ const VisualGenerator = ({ topic, context }: VisualGeneratorProps) => {
 
       {/* Image Dialog */}
       <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>{imageDescription}</span>
-              <Button variant="outline" size="sm" onClick={downloadImage}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden" dir="rtl">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="flex items-center justify-between gap-4">
+              <span className="text-lg font-semibold truncate flex-1">{imageDescription}</span>
+              <Button variant="default" size="sm" onClick={downloadImage} className="shrink-0">
                 <Download className="h-4 w-4 ml-2" />
-                تحميل
+                تحميل الصورة
               </Button>
             </DialogTitle>
           </DialogHeader>
           {generatedImage && (
-            <div className="mt-4 rounded-lg overflow-hidden border">
+            <div className="mt-4 rounded-xl overflow-hidden border-2 border-border bg-muted/30 p-2">
               <img 
                 src={generatedImage} 
                 alt={imageDescription}
-                className="w-full h-auto"
+                className="w-full h-auto max-h-[60vh] object-contain rounded-lg"
+                style={{ direction: 'rtl' }}
               />
             </div>
           )}
+          <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+            <p className="text-sm text-muted-foreground text-center">
+              تم توليد هذه الصورة بالذكاء الاصطناعي بناءً على الموضوع المحدد
+            </p>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Presentation Dialog */}
       <Dialog open={isPresentationDialogOpen} onOpenChange={setIsPresentationDialogOpen}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-5xl h-[85vh] flex flex-col" dir="rtl">
+          <DialogHeader className="border-b pb-4">
             <DialogTitle className="flex items-center justify-between">
-              <span>العرض التقديمي</span>
-              <span className="text-sm text-muted-foreground">
-                {presentation && `${currentSlide + 1} / ${presentation.slides.length}`}
-              </span>
+              <span className="text-xl font-bold">العرض التقديمي</span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm bg-primary/10 text-primary px-3 py-1 rounded-full font-medium">
+                  {presentation && `الشريحة ${currentSlide + 1} من ${presentation.slides.length}`}
+                </span>
+              </div>
             </DialogTitle>
           </DialogHeader>
           
           {presentation && presentation.slides.length > 0 && (
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-h-0">
               {/* Slide Content */}
-              <div className={`flex-1 rounded-lg p-8 ${getSlideBackground(presentation.slides[currentSlide].type)}`}>
+              <div className={`flex-1 rounded-xl p-8 shadow-inner ${getSlideBackground(presentation.slides[currentSlide].type)}`}>
                 <div className="h-full flex flex-col items-center justify-center text-center">
-                  <h2 className={`font-bold mb-6 ${
-                    presentation.slides[currentSlide].type === "title" ? "text-4xl" : "text-2xl"
+                  <h2 className={`font-bold mb-8 leading-relaxed ${
+                    presentation.slides[currentSlide].type === "title" ? "text-4xl md:text-5xl" : "text-2xl md:text-3xl"
                   }`}>
                     {presentation.slides[currentSlide].title}
                   </h2>
                   
-                  <ul className="space-y-4 text-lg max-w-2xl">
+                  <ul className="space-y-5 text-lg md:text-xl max-w-3xl w-full">
                     {presentation.slides[currentSlide].content.map((point, idx) => (
                       <li 
                         key={idx}
-                        className={`flex items-start gap-3 ${
-                          presentation.slides[currentSlide].type === "title" ? "justify-center" : ""
+                        className={`flex items-start gap-4 animate-fade-in ${
+                          presentation.slides[currentSlide].type === "title" ? "justify-center text-center" : "text-right"
                         }`}
+                        style={{ animationDelay: `${idx * 100}ms` }}
                       >
                         {presentation.slides[currentSlide].type !== "title" && (
-                          <span className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
+                          <span className="w-3 h-3 rounded-full bg-primary mt-2 shrink-0" />
                         )}
-                        <span>{point}</span>
+                        <span className="leading-relaxed">{point}</span>
                       </li>
                     ))}
                   </ul>
@@ -218,23 +227,25 @@ const VisualGenerator = ({ topic, context }: VisualGeneratorProps) => {
               </div>
 
               {/* Navigation */}
-              <div className="flex items-center justify-between mt-4">
+              <div className="flex items-center justify-between mt-6 px-4">
                 <Button
                   variant="outline"
+                  size="lg"
                   onClick={() => setCurrentSlide(prev => Math.max(0, prev - 1))}
                   disabled={currentSlide === 0}
+                  className="gap-2"
                 >
-                  <ChevronRight className="h-4 w-4 ml-2" />
+                  <ChevronRight className="h-5 w-5" />
                   السابق
                 </Button>
 
-                <div className="flex gap-1">
+                <div className="flex gap-2">
                   {presentation.slides.map((_, idx) => (
                     <button
                       key={idx}
                       onClick={() => setCurrentSlide(idx)}
-                      className={`w-2 h-2 rounded-full transition-colors ${
-                        idx === currentSlide ? "bg-primary" : "bg-muted"
+                      className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                        idx === currentSlide ? "bg-primary scale-125" : "bg-muted hover:bg-muted-foreground/30"
                       }`}
                     />
                   ))}
@@ -242,19 +253,21 @@ const VisualGenerator = ({ topic, context }: VisualGeneratorProps) => {
 
                 <Button
                   variant="outline"
+                  size="lg"
                   onClick={() => setCurrentSlide(prev => Math.min(presentation.slides.length - 1, prev + 1))}
                   disabled={currentSlide === presentation.slides.length - 1}
+                  className="gap-2"
                 >
                   التالي
-                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  <ChevronLeft className="h-5 w-5" />
                 </Button>
               </div>
 
               {/* Speaker Notes */}
               {presentation.slides[currentSlide].notes && (
-                <div className="mt-4 p-3 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">
-                    <strong>ملاحظات:</strong> {presentation.slides[currentSlide].notes}
+                <div className="mt-4 p-4 bg-muted/70 rounded-xl border">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    <strong className="text-foreground">ملاحظات للمعلم:</strong> {presentation.slides[currentSlide].notes}
                   </p>
                 </div>
               )}

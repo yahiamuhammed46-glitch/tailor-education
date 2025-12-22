@@ -31,9 +31,21 @@ serve(async (req) => {
     // Generate visual content based on type
     if (type === "diagram" || type === "infographic") {
       // Use image generation model
-      const prompt = `Create an educational ${type === "diagram" ? "diagram" : "infographic"} in Arabic language about: ${topic}. 
-${context ? `Context: ${context}` : ""}
-Style: Clean, modern, educational design with clear labels in Arabic. Use professional colors and clear visual hierarchy. Make it suitable for students.`;
+      const visualType = type === "diagram" ? "رسم توضيحي تعليمي" : "إنفوجرافيك تعليمي";
+      const prompt = `أنشئ ${visualType} باللغة العربية عن: ${topic}
+
+${context ? `السياق: ${context}` : ""}
+
+متطلبات التصميم:
+- جميع النصوص والعناوين باللغة العربية فقط
+- تصميم نظيف وعصري ومناسب للطلاب
+- استخدام ألوان احترافية ومتناسقة
+- تسلسل هرمي واضح للمعلومات
+- أيقونات ورسومات توضيحية بسيطة
+- خطوط عربية واضحة وقابلة للقراءة
+- ${type === "diagram" ? "مخطط بصري يوضح العلاقات والمفاهيم" : "تصميم جذاب يجمع المعلومات بشكل مرئي"}
+
+ملاحظة: لا تستخدم أي نص إنجليزي`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
